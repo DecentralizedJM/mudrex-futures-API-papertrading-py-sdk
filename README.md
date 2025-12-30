@@ -4,7 +4,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![GitHub](https://img.shields.io/github/stars/DecentralizedJM/mudrex-trading-sdk?style=social)](https://github.com/DecentralizedJM/mudrex-trading-sdk)
 
-**The official Python SDK for [Mudrex Futures Trading API](https://docs.trade.mudrex.com)** - Trade crypto futures programmatically with ease.
+**Unofficial official Python SDK for [Mudrex Futures Trading API](https://docs.trade.mudrex.com)** - Trade crypto futures programmatically with ease.
 
 ## 🚀 Features
 
