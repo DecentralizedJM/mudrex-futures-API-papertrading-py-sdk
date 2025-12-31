@@ -46,17 +46,34 @@ class LeverageAPI(BaseAPI):
             asset_id: Asset identifier (e.g., "BTCUSDT")
             
         Returns:
-            Leverage: Current leverage and margin type settings
+            Leverage: Current leverage and margin type settings.
+                     Returns default (1x ISOLATED) if not previously set.
             
         Example:
             >>> leverage = client.leverage.get("BTCUSDT")
             >>> print(f"Leverage: {leverage.leverage}x")
             >>> print(f"Margin type: {leverage.margin_type.value}")
+            
+        Note:
+            If leverage hasn't been set for this asset, the API may return
+            a 400 error. In this case, use set() to configure leverage first.
         """
-        response = self._get(f"/futures/{asset_id}/leverage")
-        data = response.get("data", response)
-        data["asset_id"] = asset_id
-        return Leverage.from_dict(data)
+        from mudrex.exceptions import MudrexAPIError
+        
+        try:
+            response = self._get(f"/futures/{asset_id}/leverage")
+            data = response.get("data", response) if response else {}
+            data["asset_id"] = asset_id
+            return Leverage.from_dict(data)
+        except MudrexAPIError as e:
+            # If leverage not set, return default values
+            if e.status_code == 400:
+                return Leverage(
+                    asset_id=asset_id,
+                    leverage="1",
+                    margin_type=MarginType.ISOLATED,
+                )
+            raise
     
     def set(
         self,

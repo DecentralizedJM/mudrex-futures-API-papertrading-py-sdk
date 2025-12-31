@@ -55,13 +55,24 @@ class PositionsAPI(BaseAPI):
             ...     print(f"  PnL: ${pos.unrealized_pnl} ({pos.pnl_percentage:.2f}%)")
         """
         response = self._get("/futures/positions")
+        
+        # Handle None or empty responses
+        if not response:
+            return []
+        
         data = response.get("data", response)
         
+        # Handle None data
+        if not data:
+            return []
+        
         if isinstance(data, list):
-            return [Position.from_dict(item) for item in data]
+            return [Position.from_dict(item) for item in data if item]
         
         items = data.get("items", data.get("data", []))
-        return [Position.from_dict(item) for item in items]
+        if not items:
+            return []
+        return [Position.from_dict(item) for item in items if item]
     
     def get(self, position_id: str) -> Position:
         """
