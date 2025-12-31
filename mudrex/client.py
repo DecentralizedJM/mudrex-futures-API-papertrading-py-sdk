@@ -97,6 +97,7 @@ class MudrexClient:
     
     def __init__(
         self,
+        *,  # Force keyword-only arguments
         api_secret: str,
         base_url: Optional[str] = None,
         timeout: int = 30,
@@ -105,6 +106,13 @@ class MudrexClient:
     ):
         if not api_secret:
             raise ValueError("api_secret is required")
+        
+        # Validate api_secret doesn't look like a URL (common mistake)
+        if api_secret.startswith(("http://", "https://", "www.")):
+            raise ValueError(
+                "api_secret looks like a URL. Did you mean to use base_url? "
+                "Usage: MudrexClient(api_secret='your-secret-key')"
+            )
         
         self.api_secret = api_secret
         self.base_url = (base_url or self.BASE_URL).rstrip("/")
