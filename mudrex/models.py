@@ -47,6 +47,7 @@ class PositionStatus(str, Enum):
     """Position status values."""
     OPEN = "OPEN"
     CLOSED = "CLOSED"
+    LIQUIDATED = "LIQUIDATED"
 
 
 class WalletType(str, Enum):
