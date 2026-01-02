@@ -12,6 +12,8 @@
 
 ## 🚀 Features
 
+- **Symbol-First Trading** - Use symbols like "BTCUSDT", "XRPUSDT" directly (no asset IDs needed!)
+- **500+ Trading Pairs** - Access ALL available assets automatically
 - **Full API Coverage** - Wallet, orders, positions, leverage, assets, and fees
 - **Type Hints** - Dataclass models for all API responses
 - **Error Handling** - Typed exceptions for authentication, rate limits, and validation errors
@@ -43,17 +45,21 @@ client = MudrexClient(api_secret="your-api-secret")
 balance = client.wallet.get_spot_balance()
 print(f"Available: ${balance.available}")
 
-# List tradable assets
+# List ALL tradable assets (500+ pairs!)
 assets = client.assets.list_all()
-for asset in assets[:5]:
-    print(f"{asset.symbol}: up to {asset.max_leverage}x leverage")
+print(f"Found {len(assets)} tradable assets!")
 
-# Set leverage before trading
+# Get any asset by symbol - no asset ID needed!
+btc = client.assets.get("BTCUSDT")
+xrp = client.assets.get("XRPUSDT")
+sol = client.assets.get("SOLUSDT")
+
+# Set leverage using symbol
 client.leverage.set("BTCUSDT", leverage="10", margin_type="ISOLATED")
 
-# Place a market order
+# Place an order using symbol
 order = client.orders.create_market_order(
-    asset_id="BTCUSDT",
+    symbol="BTCUSDT",      # Just use the symbol!
     side="LONG",
     quantity="0.001",
     leverage="10",
@@ -67,6 +73,35 @@ for position in client.positions.list_open():
     print(f"{position.symbol}: {position.unrealized_pnl} PnL")
 ```
 
+## 💡 Symbol-First Trading
+
+This SDK uses **trading symbols** directly - no need to look up internal asset IDs!
+
+```python
+# ✅ Just use the symbol - it works everywhere!
+client.assets.get("XRPUSDT")
+client.leverage.set("XRPUSDT", leverage="10")
+client.orders.create_market_order(symbol="XRPUSDT", side="LONG", quantity="100", leverage="5")
+
+# The SDK automatically handles the API's is_symbol parameter for you
+```
+
+## 📊 Get ALL Assets (500+ Pairs)
+
+```python
+# Automatically fetches ALL pages - no pagination limits!
+assets = client.assets.list_all()
+print(f"Total available: {len(assets)} trading pairs")
+
+# Search for specific assets
+btc_pairs = client.assets.search("BTC")      # All BTC pairs
+meme_coins = client.assets.search("DOGE")    # Find DOGE
+
+# Check if a symbol exists
+if client.assets.exists("XRPUSDT"):
+    print("XRP is tradable!")
+```
+
 ## 📚 Documentation
 
 ### API Modules
@@ -74,7 +109,7 @@ for position in client.positions.list_open():
 | Module | Description |
 |--------|-------------|
 | `client.wallet` | Spot & futures wallet balances, fund transfers |
-| `client.assets` | Discover tradable instruments, get specifications |
+| `client.assets` | Discover ALL 500+ tradable instruments |
 | `client.leverage` | Get/set leverage and margin type |
 | `client.orders` | Create, view, cancel, and amend orders |
 | `client.positions` | Manage positions, set SL/TP, close/reverse |
@@ -87,16 +122,12 @@ for position in client.positions.list_open():
 | `/wallet/funds` | POST | `client.wallet.get_spot_balance()` |
 | `/futures/funds` | GET | `client.wallet.get_futures_balance()` |
 | `/wallet/transfer` | POST | `client.wallet.transfer_to_futures()` |
-| `/futures/instruments` | GET | `client.assets.list_all()` |
-| `/futures/{asset}/instrument` | GET | `client.assets.get(asset_id)` |
-| `/futures/{asset}/leverage` | GET | `client.leverage.get(asset_id)` |
-| `/futures/{asset}/leverage` | POST | `client.leverage.set(asset_id, ...)` |
-| `/futures/{asset}/order` | POST | `client.orders.create_*_order()` |
-| `/futures/{asset}/orders` | GET | `client.orders.list_open()` |
-| `/futures/{asset}/order/{id}` | GET | `client.orders.get(order_id)` |
-| `/futures/{asset}/order/{id}` | DELETE | `client.orders.cancel(order_id)` |
+| `/futures` | GET | `client.assets.list_all()` |
+| `/futures/{symbol}?is_symbol` | GET | `client.assets.get(symbol)` |
+| `/futures/{symbol}/leverage?is_symbol` | GET/POST | `client.leverage.get(symbol)` / `set(symbol, ...)` |
+| `/futures/{symbol}/order?is_symbol` | POST | `client.orders.create_*_order(symbol=...)` |
+| `/futures/orders` | GET | `client.orders.list_open()` |
 | `/futures/positions` | GET | `client.positions.list_open()` |
-| `/futures/positions/{id}/close` | POST | `client.positions.close(position_id)` |
 
 📖 [Full API Documentation](https://docs.trade.mudrex.com/docs/overview)
 
@@ -116,21 +147,22 @@ print(f"Spot: ${spot.available} | Futures: ${futures.balance}")
 if float(futures.balance) < 100:
     client.wallet.transfer_to_futures("100")
 
-# 3️⃣ Find an asset to trade
+# 3️⃣ Find an asset to trade (use ANY symbol!)
 btc = client.assets.get("BTCUSDT")
-print(f"BTC: {btc.min_quantity} min qty, {btc.max_leverage}x max leverage")
+xrp = client.assets.get("XRPUSDT")
+print(f"XRP: {xrp.min_quantity} min qty, {xrp.max_leverage}x max leverage")
 
 # 4️⃣ Set leverage
-client.leverage.set("BTCUSDT", leverage="5", margin_type="ISOLATED")
+client.leverage.set("XRPUSDT", leverage="5", margin_type="ISOLATED")
 
 # 5️⃣ Place order with risk management
 order = client.orders.create_market_order(
-    asset_id="BTCUSDT",
+    symbol="XRPUSDT",
     side="LONG",
-    quantity="0.001",
+    quantity="100",
     leverage="5",
-    stoploss_price="95000",
-    takeprofit_price="110000"
+    stoploss_price="2.00",
+    takeprofit_price="3.50"
 )
 
 # 6️⃣ Monitor position
@@ -139,7 +171,7 @@ for pos in positions:
     print(f"{pos.symbol}: Entry ${pos.entry_price}, PnL: {pos.pnl_percentage:.2f}%")
 
 # 7️⃣ Adjust risk levels
-client.positions.set_stoploss(pos.position_id, "96000")
+client.positions.set_stoploss(pos.position_id, "2.10")
 
 # 8️⃣ Close when ready
 client.positions.close(pos.position_id)
@@ -150,7 +182,7 @@ client.positions.close(pos.position_id)
 ```python
 # Market Order - Executes immediately at current price
 order = client.orders.create_market_order(
-    asset_id="BTCUSDT",
+    symbol="BTCUSDT",
     side="LONG",       # or "SHORT"
     quantity="0.001",
     leverage="5"
@@ -158,21 +190,21 @@ order = client.orders.create_market_order(
 
 # Limit Order - Executes when price reaches target
 order = client.orders.create_limit_order(
-    asset_id="BTCUSDT",
+    symbol="XRPUSDT",
     side="LONG",
-    quantity="0.001",
-    price="95000",     # Buy when BTC drops to $95k
+    quantity="100",
+    price="2.00",      # Buy when XRP drops to $2
     leverage="5"
 )
 
 # Order with Stop-Loss & Take-Profit
 order = client.orders.create_market_order(
-    asset_id="BTCUSDT",
+    symbol="ETHUSDT",
     side="LONG",
-    quantity="0.001",
+    quantity="0.1",
     leverage="10",
-    stoploss_price="95000",    # Exit if price drops here
-    takeprofit_price="110000"  # Exit if price reaches here
+    stoploss_price="3000",     # Exit if price drops here
+    takeprofit_price="4000"    # Exit if price reaches here
 )
 ```
 
@@ -186,22 +218,22 @@ positions = client.positions.list_open()
 client.positions.close(position_id)
 
 # Partially close (reduce size)
-client.positions.close_partial(position_id, quantity="0.0005")
+client.positions.close_partial(position_id, quantity="50")
 
 # Reverse position (LONG → SHORT)
 client.positions.reverse(position_id)
 
 # Set stop-loss
-client.positions.set_stoploss(position_id, "95000")
+client.positions.set_stoploss(position_id, "2.00")
 
 # Set take-profit
-client.positions.set_takeprofit(position_id, "110000")
+client.positions.set_takeprofit(position_id, "3.50")
 
 # Set both
 client.positions.set_risk_order(
     position_id,
-    stoploss_price="95000",
-    takeprofit_price="110000"
+    stoploss_price="2.00",
+    takeprofit_price="3.50"
 )
 ```
 
@@ -263,7 +295,7 @@ Check out the [examples/](examples/) folder:
 
 | Example | Description |
 |---------|-------------|
-| [quickstart.py](examples/quickstart.py) | Basic trading workflow |
+| [quickstart.py](examples/quickstart.py) | Basic trading workflow with ALL assets |
 | [trading_bot.py](examples/trading_bot.py) | Simple automated trading bot |
 | [async_trading.py](examples/async_trading.py) | Async/concurrent operations |
 | [error_handling.py](examples/error_handling.py) | Robust error handling patterns |

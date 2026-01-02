@@ -4,14 +4,15 @@ Quickstart Example
 
 This example walks you through the basic trading workflow:
 1. Check wallet balance
-2. Transfer funds to futures
-3. Set leverage
-4. Place an order
-5. Monitor position
-6. Close position
+2. Discover ALL available assets (500+)
+3. Transfer funds to futures
+4. Set leverage
+5. Place an order
+6. Monitor position
+7. Close position
 
 Prerequisites:
-- pip install mudrex-trading-sdk
+- pip install git+https://github.com/DecentralizedJM/mudrex-trading-sdk.git
 - Get your API key from Mudrex dashboard
 """
 
@@ -44,20 +45,24 @@ def main():
     
     
     # =========================================================================
-    # Step 3: Transfer funds to futures (if needed)
+    # Step 3: Discover ALL tradable assets (500+ pairs!)
     # =========================================================================
-    # Uncomment to transfer funds:
-    # result = client.wallet.transfer_to_futures("100")
-    # print(f"\n📤 Transferred ${result.amount} to futures wallet")
+    print("\n📊 Fetching ALL tradable assets...")
+    assets = client.assets.list_all()  # Gets ALL assets, no pagination limits!
+    print(f"   Found {len(assets)} tradable assets!")
+    
+    # Show first 10 as sample
+    print("\n   Sample assets:")
+    for asset in assets[:10]:
+        print(f"   - {asset.symbol}: leverage {asset.min_leverage}x-{asset.max_leverage}x")
+    
+    print(f"\n   ... and {len(assets) - 10} more!")
     
     
     # =========================================================================
-    # Step 4: Discover tradable assets
+    # Step 4: Get specific asset details using SYMBOL (recommended)
     # =========================================================================
-    assets = client.assets.list_all()
-    print(f"\n📊 Found {len(assets)} tradable assets")
-    
-    # Find BTC
+    # Just use the symbol directly - no need for asset IDs!
     btc = client.assets.get("BTCUSDT")
     print(f"\n📈 {btc.symbol} Details:")
     print(f"   Min quantity: {btc.min_quantity}")
@@ -65,12 +70,26 @@ def main():
     print(f"   Maker fee: {btc.maker_fee}%")
     print(f"   Taker fee: {btc.taker_fee}%")
     
+    # Works with ANY symbol!
+    xrp = client.assets.get("XRPUSDT")
+    print(f"\n📈 {xrp.symbol} Details:")
+    print(f"   Min quantity: {xrp.min_quantity}")
+    print(f"   Max leverage: {xrp.max_leverage}x")
+    
     
     # =========================================================================
-    # Step 5: Set leverage
+    # Step 5: Transfer funds to futures (if needed)
+    # =========================================================================
+    # Uncomment to transfer funds:
+    # result = client.wallet.transfer_to_futures("100")
+    # print(f"\n📤 Transferred ${result.amount} to futures wallet")
+    
+    
+    # =========================================================================
+    # Step 6: Set leverage using SYMBOL
     # =========================================================================
     leverage = client.leverage.set(
-        asset_id="BTCUSDT",
+        symbol="BTCUSDT",  # Use symbol directly!
         leverage="5",
         margin_type="ISOLATED"
     )
@@ -78,12 +97,12 @@ def main():
     
     
     # =========================================================================
-    # Step 6: Place a market order
+    # Step 7: Place a market order using SYMBOL
     # =========================================================================
     # CAUTION: This places a real order! Comment out for testing.
     """
     order = client.orders.create_market_order(
-        asset_id="BTCUSDT",
+        symbol="BTCUSDT",  # Use symbol directly!
         side="LONG",
         quantity="0.001",
         leverage="5",
@@ -94,11 +113,20 @@ def main():
     print(f"   Order ID: {order.order_id}")
     print(f"   Type: {order.order_type.value}")
     print(f"   Status: {order.status.value}")
+    
+    # Trade XRP example
+    xrp_order = client.orders.create_market_order(
+        symbol="XRPUSDT",  # Works with any symbol!
+        side="LONG",
+        quantity="100",
+        leverage="5"
+    )
+    print(f"   XRP Order ID: {xrp_order.order_id}")
     """
     
     
     # =========================================================================
-    # Step 7: Monitor positions
+    # Step 8: Monitor positions
     # =========================================================================
     positions = client.positions.list_open()
     print(f"\n📊 Open Positions: {len(positions)}")
@@ -113,7 +141,7 @@ def main():
     
     
     # =========================================================================
-    # Step 8: Close position (when ready)
+    # Step 9: Close position (when ready)
     # =========================================================================
     # Uncomment to close:
     # if positions:
@@ -122,6 +150,10 @@ def main():
     
     
     print("\n✨ Done! Check out more examples in the examples/ folder.")
+    print("\n💡 Tips:")
+    print("   - Use symbols like 'BTCUSDT', 'XRPUSDT', 'ETHUSDT' directly")
+    print("   - list_all() fetches ALL 500+ assets automatically")
+    print("   - No need to worry about pagination or asset IDs!")
 
 
 if __name__ == "__main__":

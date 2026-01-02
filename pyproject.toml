@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mudrex-trading-sdk"
-version = "1.0.0"
+version = "1.1.0"
 description = "Unofficial Python SDK for Mudrex Futures Trading API"
 readme = "README.md"
 license = {text = "MIT"}

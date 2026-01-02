@@ -3,7 +3,7 @@ Trading Bot Example
 ===================
 
 A simple trading bot that demonstrates:
-- Market monitoring
+- Market monitoring using SYMBOLS directly
 - Position management
 - Risk management with SL/TP
 - Error handling
@@ -34,23 +34,32 @@ class SimpleTradingBot:
     A simple trading bot example.
     
     This bot:
-    1. Monitors a single asset
+    1. Monitors a single asset using SYMBOL (e.g., "BTCUSDT", "XRPUSDT")
     2. Opens positions based on simple logic
     3. Manages risk with stop-loss and take-profit
     4. Closes positions when targets are hit
+    
+    Example usage:
+        bot = SimpleTradingBot(
+            api_secret="your-secret",
+            symbol="XRPUSDT",  # Trade any symbol!
+            leverage="5",
+            position_size="100",
+        )
+        bot.run()
     """
     
     def __init__(
         self,
         api_secret: str,
-        asset: str = "BTCUSDT",
+        symbol: str = "BTCUSDT",  # Use symbol directly!
         leverage: str = "5",
         position_size: str = "0.001",
         stop_loss_pct: float = 2.0,
         take_profit_pct: float = 4.0,
     ):
         self.client = MudrexClient(api_secret=api_secret)
-        self.asset = asset
+        self.symbol = symbol  # Trading symbol like "BTCUSDT", "XRPUSDT"
         self.leverage = leverage
         self.position_size = position_size
         self.stop_loss_pct = stop_loss_pct
@@ -60,7 +69,7 @@ class SimpleTradingBot:
     
     def setup(self) -> None:
         """Set up the bot before trading."""
-        logger.info(f"Setting up bot for {self.asset}...")
+        logger.info(f"Setting up bot for {self.symbol}...")
         
         # Check balances
         futures_balance = self.client.wallet.get_futures_balance()
@@ -69,25 +78,25 @@ class SimpleTradingBot:
         if Decimal(futures_balance.balance) < 10:
             logger.warning("Low balance! Consider transferring more funds.")
         
-        # Set leverage
+        # Set leverage using SYMBOL directly
         self.client.leverage.set(
-            asset_id=self.asset,
+            symbol=self.symbol,  # Just pass the symbol!
             leverage=self.leverage,
             margin_type="ISOLATED"
         )
         logger.info(f"Leverage set to {self.leverage}x")
         
-        # Get asset details
-        asset_info = self.client.assets.get(self.asset)
+        # Get asset details using SYMBOL
+        asset_info = self.client.assets.get(self.symbol)
         logger.info(f"Trading {asset_info.symbol}")
         logger.info(f"  Min qty: {asset_info.min_quantity}")
         logger.info(f"  Max leverage: {asset_info.max_leverage}x")
     
     def get_current_position(self) -> Optional[dict]:
-        """Get current position for the asset, if any."""
+        """Get current position for the symbol, if any."""
         positions = self.client.positions.list_open()
         for pos in positions:
-            if pos.symbol == self.asset:
+            if pos.symbol == self.symbol:
                 return pos
         return None
     
@@ -100,20 +109,21 @@ class SimpleTradingBot:
             stop_loss = entry_price * (1 + self.stop_loss_pct / 100)
             take_profit = entry_price * (1 - self.take_profit_pct / 100)
         
-        return str(round(stop_loss, 2)), str(round(take_profit, 2))
+        return str(round(stop_loss, 4)), str(round(take_profit, 4))
     
     def open_position(self, side: str, entry_price: float) -> None:
-        """Open a new position."""
+        """Open a new position using SYMBOL."""
         stop_loss, take_profit = self.calculate_sl_tp(entry_price, side)
         
-        logger.info(f"Opening {side} position...")
+        logger.info(f"Opening {side} position on {self.symbol}...")
         logger.info(f"  Entry: ${entry_price}")
         logger.info(f"  Stop Loss: ${stop_loss}")
         logger.info(f"  Take Profit: ${take_profit}")
         
         try:
+            # Use symbol parameter - SDK handles is_symbol automatically!
             order = self.client.orders.create_market_order(
-                asset_id=self.asset,
+                symbol=self.symbol,  # Just the symbol!
                 side=side,
                 quantity=self.position_size,
                 leverage=self.leverage,
@@ -129,7 +139,7 @@ class SimpleTradingBot:
         pnl_pct = position.pnl_percentage
         
         # Log position status
-        logger.info(f"Position: {position.side.value} {position.quantity}")
+        logger.info(f"Position: {position.side.value} {position.quantity} {self.symbol}")
         logger.info(f"  PnL: ${position.unrealized_pnl} ({pnl_pct:.2f}%)")
         
         # Auto-close logic (SL/TP should handle this, but as backup)
@@ -156,14 +166,14 @@ class SimpleTradingBot:
                 self.check_and_close_position(position)
             else:
                 # No position - could implement entry logic here
-                logger.info("No open position. Waiting for entry signal...")
+                logger.info(f"No open position on {self.symbol}. Waiting for entry signal...")
                 
                 # Example: Simple random entry (DO NOT USE IN PRODUCTION)
                 # This is just for demonstration!
                 # import random
                 # if random.random() > 0.9:
                 #     side = "LONG" if random.random() > 0.5 else "SHORT"
-                #     self.open_position(side, 100000)  # Example price
+                #     self.open_position(side, 2.50)  # Example XRP price
         
         except MudrexRateLimitError:
             logger.warning("Rate limited, waiting...")
@@ -178,7 +188,7 @@ class SimpleTradingBot:
         Args:
             interval: Seconds between checks
         """
-        logger.info("Starting bot...")
+        logger.info(f"Starting bot for {self.symbol}...")
         self._running = True
         
         self.setup()
@@ -207,10 +217,11 @@ def main():
         print("Example: export MUDREX_API_SECRET='your-secret-here'")
         return
     
-    # Create and run bot
+    # Create and run bot - works with ANY symbol!
+    # Examples: "BTCUSDT", "ETHUSDT", "XRPUSDT", "SOLUSDT", etc.
     bot = SimpleTradingBot(
         api_secret=api_secret,
-        asset="BTCUSDT",
+        symbol="BTCUSDT",      # Just use the symbol!
         leverage="5",
         position_size="0.001",
         stop_loss_pct=2.0,
@@ -220,6 +231,17 @@ def main():
     # Run once for demo (use bot.run() for continuous)
     bot.setup()
     bot.run_once()
+    
+    # Example with XRP:
+    # xrp_bot = SimpleTradingBot(
+    #     api_secret=api_secret,
+    #     symbol="XRPUSDT",     # Trade XRP!
+    #     leverage="5",
+    #     position_size="100",   # 100 XRP
+    #     stop_loss_pct=2.0,
+    #     take_profit_pct=4.0,
+    # )
+    # xrp_bot.run()
 
 
 if __name__ == "__main__":

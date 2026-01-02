@@ -3,6 +3,7 @@ Orders API Module
 =================
 
 Endpoints for creating, managing, and tracking futures orders.
+Use symbols like "BTCUSDT", "XRPUSDT", "ETHUSDT" directly.
 """
 
 from typing import TYPE_CHECKING, Optional, List, Union
@@ -19,32 +20,29 @@ class OrdersAPI(BaseAPI):
     Order management endpoints.
     
     Use these methods to:
-    - Place market and limit orders
+    - Place market and limit orders using trading symbols
     - View open orders
     - Get order details and history
     - Cancel or amend existing orders
     
+    All methods accept trading symbols like "BTCUSDT", "XRPUSDT", "ETHUSDT".
+    
     Example:
         >>> client = MudrexClient(api_secret="...")
         >>> 
-        >>> # Place a market order
+        >>> # Place a market order (uses symbol directly!)
         >>> order = client.orders.create_market_order(
-        ...     asset_id="BTCUSDT",
+        ...     symbol="XRPUSDT",  # Trading symbol
         ...     side="LONG",
-        ...     quantity="0.001",
+        ...     quantity="100",
         ...     leverage="5"
         ... )
         >>> print(f"Order placed: {order.order_id}")
-        >>> 
-        >>> # View open orders
-        >>> orders = client.orders.list_open()
-        >>> for o in orders:
-        ...     print(f"{o.symbol}: {o.quantity} @ {o.price}")
     """
     
     def create_market_order(
         self,
-        asset_id: str,
+        symbol: str,
         side: Union[str, OrderType],
         quantity: str,
         leverage: str = "1",
@@ -56,7 +54,7 @@ class OrdersAPI(BaseAPI):
         Place a market order (executes immediately at current price).
         
         Args:
-            asset_id: Asset to trade (e.g., "BTCUSDT")
+            symbol: Trading symbol (e.g., "BTCUSDT", "XRPUSDT", "ETHUSDT")
             side: Order direction - "LONG" or "SHORT"
             quantity: Order quantity (as string for precision)
             leverage: Leverage to use (default: "1")
@@ -70,24 +68,24 @@ class OrdersAPI(BaseAPI):
         Example:
             >>> # Simple market buy
             >>> order = client.orders.create_market_order(
-            ...     asset_id="BTCUSDT",
+            ...     symbol="BTCUSDT",
             ...     side="LONG",
             ...     quantity="0.001",
             ...     leverage="10"
             ... )
             >>> 
-            >>> # Market order with SL/TP
+            >>> # Trade XRP with SL/TP
             >>> order = client.orders.create_market_order(
-            ...     asset_id="BTCUSDT",
+            ...     symbol="XRPUSDT",
             ...     side="LONG",
-            ...     quantity="0.001",
+            ...     quantity="100",
             ...     leverage="5",
-            ...     stoploss_price="95000",
-            ...     takeprofit_price="110000"
+            ...     stoploss_price="2.00",
+            ...     takeprofit_price="3.00"
             ... )
         """
         return self._create_order(
-            asset_id=asset_id,
+            symbol=symbol,
             side=side,
             quantity=quantity,
             trigger_type=TriggerType.MARKET,
@@ -99,7 +97,7 @@ class OrdersAPI(BaseAPI):
     
     def create_limit_order(
         self,
-        asset_id: str,
+        symbol: str,
         side: Union[str, OrderType],
         quantity: str,
         price: str,
@@ -112,7 +110,7 @@ class OrdersAPI(BaseAPI):
         Place a limit order (executes when price reaches target).
         
         Args:
-            asset_id: Asset to trade (e.g., "BTCUSDT")
+            symbol: Trading symbol (e.g., "BTCUSDT", "XRPUSDT", "ETHUSDT")
             side: Order direction - "LONG" or "SHORT"
             quantity: Order quantity (as string for precision)
             price: Limit price (order triggers at this price)
@@ -125,17 +123,17 @@ class OrdersAPI(BaseAPI):
             Order: Created order details
             
         Example:
-            >>> # Limit buy below current price
+            >>> # Limit buy XRP when it dips
             >>> order = client.orders.create_limit_order(
-            ...     asset_id="BTCUSDT",
+            ...     symbol="XRPUSDT",
             ...     side="LONG",
-            ...     quantity="0.001",
-            ...     price="95000",  # Buy when BTC drops to 95k
+            ...     quantity="100",
+            ...     price="2.00",  # Buy when XRP drops to $2
             ...     leverage="5"
             ... )
         """
         return self._create_order(
-            asset_id=asset_id,
+            symbol=symbol,
             side=side,
             quantity=quantity,
             trigger_type=TriggerType.LIMIT,
@@ -148,7 +146,7 @@ class OrdersAPI(BaseAPI):
     
     def _create_order(
         self,
-        asset_id: str,
+        symbol: str,
         side: Union[str, OrderType],
         quantity: str,
         trigger_type: TriggerType,
@@ -158,7 +156,7 @@ class OrdersAPI(BaseAPI):
         takeprofit_price: Optional[str] = None,
         reduce_only: bool = False,
     ) -> Order:
-        """Internal method to create orders."""
+        """Internal method to create orders with symbol support."""
         # Convert side to OrderType if string
         if isinstance(side, str):
             side = OrderType(side.upper())
@@ -177,45 +175,40 @@ class OrdersAPI(BaseAPI):
             reduce_only=reduce_only,
         )
         
-        response = self._post(f"/futures/{asset_id}/order", request.to_dict())
+        # Use symbol with is_symbol parameter
+        response = self._post(
+            f"/futures/{symbol}/order", 
+            request.to_dict(),
+            use_symbol=True  # Critical: tells API we're using symbol, not asset_id
+        )
         
         data = response.get("data", response)
-        data["asset_id"] = asset_id
-        data["symbol"] = asset_id
+        data["asset_id"] = symbol
+        data["symbol"] = symbol
         
         return Order.from_dict(data)
     
-    def create(self, asset_id: str, request: OrderRequest) -> Order:
+    def create(self, symbol: str, request: OrderRequest) -> Order:
         """
         Create an order using an OrderRequest object.
         
         This is useful when you need full control over order parameters.
         
         Args:
-            asset_id: Asset to trade
+            symbol: Trading symbol (e.g., "BTCUSDT")
             request: OrderRequest with all order parameters
             
         Returns:
             Order: Created order details
-            
-        Example:
-            >>> from mudrex import OrderRequest, OrderType, TriggerType
-            >>> 
-            >>> request = OrderRequest(
-            ...     quantity="0.001",
-            ...     order_type=OrderType.LONG,
-            ...     trigger_type=TriggerType.MARKET,
-            ...     leverage="10",
-            ...     is_stoploss=True,
-            ...     stoploss_price="95000",
-            ...     is_takeprofit=True,
-            ...     takeprofit_price="110000",
-            ... )
-            >>> order = client.orders.create("BTCUSDT", request)
         """
-        response = self._post(f"/futures/{asset_id}/order", request.to_dict())
+        response = self._post(
+            f"/futures/{symbol}/order", 
+            request.to_dict(),
+            use_symbol=True
+        )
         data = response.get("data", response)
-        data["asset_id"] = asset_id
+        data["asset_id"] = symbol
+        data["symbol"] = symbol
         return Order.from_dict(data)
     
     def list_open(self) -> List[Order]:
@@ -248,46 +241,51 @@ class OrdersAPI(BaseAPI):
             
         Returns:
             Order: Order details
-            
-        Example:
-            >>> order = client.orders.get("ord_12345")
-            >>> print(f"Status: {order.status.value}")
-            >>> print(f"Filled: {order.filled_quantity}/{order.quantity}")
         """
         response = self._get(f"/futures/orders/{order_id}")
         return Order.from_dict(response.get("data", response))
     
-    def get_history(
-        self,
-        page: int = 1,
-        per_page: int = 50,
-    ) -> List[Order]:
+    def get_history(self, limit: int = 100) -> List[Order]:
         """
         Get order history.
         
         Args:
-            page: Page number (default: 1)
-            per_page: Items per page (default: 50)
+            limit: Maximum number of orders to return (default: 100)
             
         Returns:
             List[Order]: Historical orders
             
         Example:
             >>> history = client.orders.get_history()
-            >>> filled = [o for o in history if o.status == OrderStatus.FILLED]
-            >>> print(f"Filled orders: {len(filled)}")
+            >>> print(f"Total orders: {len(history)}")
         """
-        response = self._get("/futures/orders/history", {
-            "page": page,
-            "per_page": per_page,
-        })
-        data = response.get("data", response)
+        all_orders = []
+        page = 1
+        per_page = min(limit, 100)
         
-        if isinstance(data, list):
-            return [Order.from_dict(item) for item in data]
+        while len(all_orders) < limit:
+            response = self._get("/futures/orders/history", {
+                "page": page,
+                "per_page": per_page,
+            })
+            data = response.get("data", response)
+            
+            if isinstance(data, list):
+                items = data
+            else:
+                items = data.get("items", data.get("data", []))
+            
+            if not items:
+                break
+            
+            all_orders.extend([Order.from_dict(item) for item in items])
+            
+            if len(items) < per_page:
+                break
+            
+            page += 1
         
-        items = data.get("items", data.get("data", []))
-        return [Order.from_dict(item) for item in items]
+        return all_orders[:limit]
     
     def cancel(self, order_id: str) -> bool:
         """
@@ -298,10 +296,6 @@ class OrdersAPI(BaseAPI):
             
         Returns:
             bool: True if cancelled successfully
-            
-        Example:
-            >>> if client.orders.cancel("ord_12345"):
-            ...     print("Order cancelled")
         """
         response = self._delete(f"/futures/orders/{order_id}")
         return response.get("success", False)
@@ -322,14 +316,6 @@ class OrdersAPI(BaseAPI):
             
         Returns:
             Order: Updated order details
-            
-        Example:
-            >>> # Change limit order price
-            >>> updated = client.orders.amend(
-            ...     order_id="ord_12345",
-            ...     price="96000"
-            ... )
-            >>> print(f"New price: {updated.price}")
         """
         data = {}
         if price is not None:
