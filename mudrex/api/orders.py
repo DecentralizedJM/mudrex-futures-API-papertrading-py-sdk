@@ -156,22 +156,34 @@ class OrdersAPI(BaseAPI):
         takeprofit_price: Optional[str] = None,
         reduce_only: bool = False,
     ) -> Order:
-        """Internal method to create orders with symbol support."""
+        """Internal method to create orders with symbol support and smart quantity handling."""
         # Convert side to OrderType if string
         if isinstance(side, str):
             side = OrderType(side.upper())
         
-        # Mudrex API requires order_price even for MARKET orders!
-        # If not provided, fetch current market price
-        if price is None and trigger_type == TriggerType.MARKET:
-            # Import here to avoid circular dependency
-            from mudrex.api.assets import AssetsAPI
-            assets_api = AssetsAPI(self._client)
+        # Fetch asset info to get quantity_step for proper rounding
+        from mudrex.api.assets import AssetsAPI
+        assets_api = AssetsAPI(self._client)
+        
+        try:
             asset = assets_api.get(symbol)
-            # Use the price from asset data, or fallback to a reasonable value
-            # Note: The asset response may not have 'price' field populated
-            # In that case, we'll use a placeholder that the API accepts
-            price = "999999999"  # Placeholder for market orders
+            quantity_step = float(asset.quantity_step) if asset.quantity_step else None
+            
+            # Auto-round quantity to match asset's quantity_step
+            if quantity_step and quantity_step > 0:
+                raw_qty = float(quantity)
+                # Round to nearest multiple of quantity_step
+                rounded_qty = round(raw_qty / quantity_step) * quantity_step
+                # Determine precision from quantity_step
+                precision = len(str(quantity_step).split('.')[-1]) if '.' in str(quantity_step) else 0
+                quantity = str(round(rounded_qty, precision))
+        except Exception:
+            # If asset fetch fails, use quantity as-is
+            pass
+        
+        # Mudrex API requires order_price even for MARKET orders
+        if price is None and trigger_type == TriggerType.MARKET:
+            price = "999999999"  # High placeholder price for market buy
         
         # Build order request
         request = OrderRequest(
