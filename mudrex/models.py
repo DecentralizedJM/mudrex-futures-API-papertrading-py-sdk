@@ -223,24 +223,25 @@ class OrderRequest:
     reduce_only: bool = False
     
     def to_dict(self) -> Dict[str, Any]:
+        """Convert to API request format with numeric types."""
         data = {
-            "leverage": self.leverage,
-            "quantity": self.quantity,
+            "leverage": float(self.leverage),  # API requires number, not string
+            "quantity": float(self.quantity),  # API requires number, not string
             "order_type": self.order_type.value,
             "trigger_type": self.trigger_type.value,
             "reduce_only": self.reduce_only,
         }
         
         if self.order_price:
-            data["order_price"] = self.order_price
+            data["order_price"] = float(self.order_price)  # API requires number, not string
             
         if self.is_stoploss and self.stoploss_price:
             data["is_stoploss"] = True
-            data["stoploss_price"] = self.stoploss_price
+            data["stoploss_price"] = float(self.stoploss_price)  # API requires number
             
         if self.is_takeprofit and self.takeprofit_price:
             data["is_takeprofit"] = True
-            data["takeprofit_price"] = self.takeprofit_price
+            data["takeprofit_price"] = float(self.takeprofit_price)  # API requires number
             
         return data
 

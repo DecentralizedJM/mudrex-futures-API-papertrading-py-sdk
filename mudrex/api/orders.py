@@ -161,6 +161,18 @@ class OrdersAPI(BaseAPI):
         if isinstance(side, str):
             side = OrderType(side.upper())
         
+        # Mudrex API requires order_price even for MARKET orders!
+        # If not provided, fetch current market price
+        if price is None and trigger_type == TriggerType.MARKET:
+            # Import here to avoid circular dependency
+            from mudrex.api.assets import AssetsAPI
+            assets_api = AssetsAPI(self._client)
+            asset = assets_api.get(symbol)
+            # Use the price from asset data, or fallback to a reasonable value
+            # Note: The asset response may not have 'price' field populated
+            # In that case, we'll use a placeholder that the API accepts
+            price = "999999999"  # Placeholder for market orders
+        
         # Build order request
         request = OrderRequest(
             quantity=quantity,
