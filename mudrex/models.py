@@ -351,11 +351,13 @@ class RiskOrder:
     takeprofit_price: Optional[str] = None
     
     def to_dict(self) -> Dict[str, Any]:
-        data = {}
+        data = {"order_source": "API"}
         if self.stoploss_price:
             data["stoploss_price"] = self.stoploss_price
+            data["is_stoploss"] = True
         if self.takeprofit_price:
             data["takeprofit_price"] = self.takeprofit_price
+            data["is_takeprofit"] = True
         return data
 
 
