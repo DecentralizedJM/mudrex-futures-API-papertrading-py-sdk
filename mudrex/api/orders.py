@@ -95,6 +95,65 @@ class OrdersAPI(BaseAPI):
             reduce_only=reduce_only,
         )
     
+    def create_market_order_with_amount(
+        self,
+        symbol: str,
+        side: Union[str, OrderType],
+        amount: str,
+        leverage: str = "1",
+        stoploss_price: Optional[str] = None,
+        takeprofit_price: Optional[str] = None,
+        reduce_only: bool = False,
+    ) -> Order:
+        """
+        Place a market order specified by quote currency amount (USDT).
+        
+        This helper retrieves the current market price and calculates the 
+        correct base asset quantity to match the desired USD amount.
+        
+        Args:
+            symbol: Trading symbol (e.g., "BTCUSDT")
+            side: Order direction - "LONG" or "SHORT"
+            amount: Amount in Quote Currency (USDT) to trade
+            leverage: Leverage to use (default: "1")
+            stoploss_price: Optional stop-loss price
+            takeprofit_price: Optional take-profit price
+            reduce_only: If True, only reduces existing position
+            
+        Returns:
+            Order: Created order details
+        """
+        # Fetch asset info to get current price and precision
+        # Using _client.assets.get allows internal access
+        asset = self._client.assets.get(symbol)
+        
+        if not asset.price:
+             raise ValueError(f"Could not fetch current price for {symbol} to calculate quantity from amount")
+             
+        try:
+            price = float(asset.price)
+            quantity_step = float(asset.quantity_step) if asset.quantity_step else 0.0
+            target_amount = float(amount)
+        except (ValueError, TypeError):
+            raise ValueError(f"Invalid price ({asset.price}) or quantity step for {symbol}")
+
+        # Calculate quantity using shared utility
+        from mudrex.utils import calculate_order_from_usd
+        qty, _ = calculate_order_from_usd(target_amount, price, quantity_step)
+        
+        if qty <= 0:
+            raise ValueError(f"Calculated quantity is 0 for amount ${amount} at price {price}")
+            
+        return self.create_market_order(
+            symbol=symbol,
+            side=side,
+            quantity=str(qty),
+            leverage=leverage,
+            stoploss_price=stoploss_price,
+            takeprofit_price=takeprofit_price,
+            reduce_only=reduce_only,
+        )
+
     def create_limit_order(
         self,
         symbol: str,
