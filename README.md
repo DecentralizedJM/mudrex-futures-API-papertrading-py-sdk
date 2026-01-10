@@ -1,358 +1,578 @@
-# Mudrex Futures API Trading SDK (Python)
+# Mudrex Futures Paper Trading SDK
 
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![GitHub](https://img.shields.io/github/stars/DecentralizedJM/mudrex-trading-sdk?style=social)](https://github.com/DecentralizedJM/mudrex-trading-sdk)
 
-**Python SDK for [Mudrex Futures Trading API](https://docs.trade.mudrex.com/docs/overview)** - Trade crypto futures programmatically with ease.
+**Trade with simulated funds using real market prices.** Perfect for strategy testing, learning, and development without risking real money.
 
-**Built and maintained by [DecentralizedJM](https://github.com/DecentralizedJM)**
+**Built by [DecentralizedJM](https://github.com/DecentralizedJM)**
 
-> 📦 **Other Languages:** [Go](https://github.com/DecentralizedJM/mudrex-go-sdk) | [Java](https://github.com/DecentralizedJM/mudrex-java-sdk) | [.NET](https://github.com/DecentralizedJM/mudrex-dotnet-sdk) | [Node.js](https://github.com/DecentralizedJM/mudrex-nodejs-sdk) | [SDK Registry](https://github.com/DecentralizedJM/mudrex-sdk-registry)
+---
 
-## 🚀 Features
+## 🎯 What is Paper Trading?
 
-- **Symbol-First Trading** - Use symbols like "BTCUSDT", "XRPUSDT" directly (no asset IDs needed!)
-- **500+ Trading Pairs** - Access ALL available assets automatically
-- **Full API Coverage** - Wallet, orders, positions, leverage, assets, and fees
-- **Type Hints** - Dataclass models for all API responses
-- **Error Handling** - Typed exceptions for authentication, rate limits, and validation errors
-- **Rate Limit Aware** - Respects API limits (2/s, 50/min, 1000/hr, 10000/day)
+Paper trading lets you practice trading with **fake money** but **real market prices**. It's like a flight simulator for traders - all the realism, none of the risk.
+
+```python
+from mudrex import MudrexClient
+
+# Same SDK, just add mode="paper"
+client = MudrexClient(
+    api_secret="your-api-secret",  # Still needed for live prices
+    mode="paper",                   # ← The magic toggle
+    paper_balance="10000",          # Start with $10,000 fake USDT
+)
+
+# Now trade normally - no real money involved!
+order = client.orders.create_market_order(
+    symbol="BTCUSDT",
+    side="LONG",
+    quantity="0.01",
+    leverage="10",
+)
+
+# Real prices, simulated execution
+positions = client.positions.list_open()
+print(f"PnL: ${positions[0].unrealized_pnl}")
+```
+
+---
+
+## ✨ Features
+
+| Feature | Description |
+|---------|-------------|
+| 🔄 **Same SDK Interface** | Zero code changes when switching between paper and live |
+| 📈 **Real Market Prices** | Uses live Mudrex price feeds for accuracy |
+| 💰 **Simulated Funds** | Start with any amount of virtual USDT |
+| 📊 **Full Order Support** | Market orders, limit orders, LONG/SHORT |
+| ⚡ **Leverage Trading** | Up to max leverage with margin calculations |
+| 🛡️ **Stop-Loss/Take-Profit** | Background monitoring with auto-triggers |
+| 💾 **State Persistence** | SQLite database saves your progress |
+| 📉 **PnL Tracking** | Real-time unrealized/realized profit tracking |
+| 📜 **Trade History** | Complete log of all trades and actions |
+| 📊 **Statistics** | Win rate, total PnL, fees paid, and more |
+
+---
 
 ## 📦 Installation
 
-### Install from GitHub (Recommended)
 ```bash
-pip install git+https://github.com/DecentralizedJM/mudrex-trading-sdk.git
-```
+# Clone the repository
+git clone https://github.com/DecentralizedJM/mudrex-futures-papertrading-sdk.git
+cd mudrex-futures-papertrading-sdk
 
-### Or clone and install locally
-```bash
-git clone https://github.com/DecentralizedJM/mudrex-trading-sdk.git
-cd mudrex-trading-sdk
+# Install
 pip install -e .
 ```
 
-## ⚡ Quick Start
+---
+
+## 🚀 Quick Start
+
+### Basic Usage
 
 ```python
 from mudrex import MudrexClient
 
-# Initialize the client
-client = MudrexClient(api_secret="your-api-secret")
-
-# Check your balance
-balance = client.wallet.get_spot_balance()
-print(f"Available: ${balance.available}")
-
-# List ALL tradable assets (500+ pairs!)
-assets = client.assets.list_all()
-print(f"Found {len(assets)} tradable assets!")
-
-# Get any asset by symbol - no asset ID needed!
-btc = client.assets.get("BTCUSDT")
-xrp = client.assets.get("XRPUSDT")
-sol = client.assets.get("SOLUSDT")
-
-# Set leverage using symbol
-client.leverage.set("BTCUSDT", leverage="10", margin_type="ISOLATED")
-
-# Place an order using symbol
-order = client.orders.create_market_order(
-    symbol="BTCUSDT",      # Just use the symbol!
-    side="LONG",
-    quantity="0.001",
-    leverage="10",
-    stoploss_price="95000",
-    takeprofit_price="110000"
-)
-print(f"Order placed: {order.order_id}")
-
-# Monitor positions
-for position in client.positions.list_open():
-    print(f"{position.symbol}: {position.unrealized_pnl} PnL")
-```
-
-## 💡 Symbol-First Trading
-
-This SDK uses **trading symbols** directly - no need to look up internal asset IDs!
-
-```python
-# ✅ Just use the symbol - it works everywhere!
-client.assets.get("XRPUSDT")
-client.leverage.set("XRPUSDT", leverage="10")
-client.orders.create_market_order(symbol="XRPUSDT", side="LONG", quantity="100", leverage="5")
-
-# The SDK automatically handles the API's is_symbol parameter for you
-```
-
-## 📊 Get ALL Assets (500+ Pairs)
-
-```python
-# Automatically fetches ALL pages - no pagination limits!
-assets = client.assets.list_all()
-print(f"Total available: {len(assets)} trading pairs")
-
-# Search for specific assets
-btc_pairs = client.assets.search("BTC")      # All BTC pairs
-meme_coins = client.assets.search("DOGE")    # Find DOGE
-
-# Check if a symbol exists
-if client.assets.exists("XRPUSDT"):
-    print("XRP is tradable!")
-```
-
-## 📚 Documentation
-
-### API Modules
-
-| Module | Description |
-|--------|-------------|
-| `client.wallet` | Spot & futures wallet balances, fund transfers |
-| `client.assets` | Discover ALL 500+ tradable instruments |
-| `client.leverage` | Get/set leverage and margin type |
-| `client.orders` | Create, view, cancel, and amend orders |
-| `client.positions` | Manage positions, set SL/TP, close/reverse |
-| `client.fees` | View trading fee history |
-
-### API Endpoints Reference
-
-| Endpoint | Method | SDK Method |
-|----------|--------|------------|
-| `/wallet/funds` | POST | `client.wallet.get_spot_balance()` |
-| `/futures/funds` | GET | `client.wallet.get_futures_balance()` |
-| `/wallet/transfer` | POST | `client.wallet.transfer_to_futures()` |
-| `/futures` | GET | `client.assets.list_all()` |
-| `/futures/{symbol}?is_symbol` | GET | `client.assets.get(symbol)` |
-| `/futures/{symbol}/leverage?is_symbol` | GET/POST | `client.leverage.get(symbol)` / `set(symbol, ...)` |
-| `/futures/{symbol}/order?is_symbol` | POST | `client.orders.create_*_order(symbol=...)` |
-| `/futures/orders` | GET | `client.orders.list_open()` |
-| `/futures/positions` | GET | `client.positions.list_open()` |
-
-📖 [Full API Documentation](https://docs.trade.mudrex.com/docs/overview)
-
-### Complete Trading Workflow
-
-```python
-from mudrex import MudrexClient
-
-client = MudrexClient(api_secret="your-secret")
-
-# 1️⃣ Check balance
-spot = client.wallet.get_spot_balance()
-futures = client.wallet.get_futures_balance()
-print(f"Spot: ${spot.available} | Futures: ${futures.balance}")
-
-# 2️⃣ Transfer funds to futures (if needed)
-if float(futures.balance) < 100:
-    client.wallet.transfer_to_futures("100")
-
-# 3️⃣ Find an asset to trade (use ANY symbol!)
-btc = client.assets.get("BTCUSDT")
-xrp = client.assets.get("XRPUSDT")
-print(f"XRP: {xrp.min_quantity} min qty, {xrp.max_leverage}x max leverage")
-
-# 4️⃣ Set leverage
-client.leverage.set("XRPUSDT", leverage="5", margin_type="ISOLATED")
-
-# 5️⃣ Place order with risk management
-order = client.orders.create_market_order(
-    symbol="XRPUSDT",
-    side="LONG",
-    quantity="100",
-    leverage="5",
-    stoploss_price="2.00",
-    takeprofit_price="3.50"
+# Initialize in paper mode
+client = MudrexClient(
+    api_secret="your-api-secret",
+    mode="paper",
+    paper_balance="10000",
 )
 
-# 6️⃣ Monitor position
-positions = client.positions.list_open()
-for pos in positions:
-    print(f"{pos.symbol}: Entry ${pos.entry_price}, PnL: {pos.pnl_percentage:.2f}%")
+# Check balance
+balance = client.wallet.get_futures_balance()
+print(f"Balance: ${balance.balance}")
 
-# 7️⃣ Adjust risk levels
-client.positions.set_stoploss(pos.position_id, "2.10")
-
-# 8️⃣ Close when ready
-client.positions.close(pos.position_id)
-```
-
-### Order Types
-
-```python
-# Market Order - Executes immediately at current price
+# Place a trade
 order = client.orders.create_market_order(
     symbol="BTCUSDT",
-    side="LONG",       # or "SHORT"
-    quantity="0.001",
-    leverage="5"
-)
-
-# Limit Order - Executes when price reaches target
-order = client.orders.create_limit_order(
-    symbol="XRPUSDT",
     side="LONG",
-    quantity="100",
-    price="2.00",      # Buy when XRP drops to $2
-    leverage="5"
-)
-
-# Order with Stop-Loss & Take-Profit
-order = client.orders.create_market_order(
-    symbol="ETHUSDT",
-    side="LONG",
-    quantity="0.1",
+    quantity="0.01",
     leverage="10",
-    stoploss_price="3000",     # Exit if price drops here
-    takeprofit_price="4000"    # Exit if price reaches here
+    stoploss_price="65000",
+    takeprofit_price="72000",
 )
-```
 
-### Position Management
-
-```python
-# View all open positions
+# Check position
 positions = client.positions.list_open()
+for pos in positions:
+    print(f"{pos.symbol}: {pos.side} | PnL: ${pos.unrealized_pnl}")
 
-# Close a position completely
-client.positions.close(position_id)
+# Get statistics
+stats = client.get_paper_statistics()
+print(f"Win Rate: {stats['win_rate']}")
 
-# Partially close (reduce size)
-client.positions.close_partial(position_id, quantity="50")
-
-# Reverse position (LONG → SHORT)
-client.positions.reverse(position_id)
-
-# Set stop-loss
-client.positions.set_stoploss(position_id, "2.00")
-
-# Set take-profit
-client.positions.set_takeprofit(position_id, "3.50")
-
-# Set both
-client.positions.set_risk_order(
-    position_id,
-    stoploss_price="2.00",
-    takeprofit_price="3.50"
-)
+# Always close to save state
+client.close()
 ```
 
-### Error Handling
+### Configuration Options
 
 ```python
-from mudrex import MudrexClient
-from mudrex.exceptions import (
-    MudrexAPIError,
-    MudrexAuthenticationError,
-    MudrexRateLimitError,
-    MudrexValidationError,
+client = MudrexClient(
+    api_secret="...",
+    mode="paper",
+    
+    # Paper trading options
+    paper_balance="10000",           # Initial USDT balance
+    paper_db_path="./trades.db",     # Custom database path
+    paper_sltp_monitor=True,         # Enable SL/TP background monitor
+    paper_sltp_interval=5,           # Check SL/TP every 5 seconds
+)
+```
+
+---
+
+## 🏗️ Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                         MudrexClient                                │
+│                        mode="paper"                                 │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  ┌──────────────────────────────────────────────────────────────┐   │
+│  │                    Paper API Layer                           │   │
+│  │  ┌────────────┐ ┌────────────┐ ┌────────────┐ ┌───────────┐  │   │
+│  │  │ OrdersAPI  │ │PositionsAPI│ │ WalletAPI  │ │LeverageAPI│  │   │
+│  │  └─────┬──────┘ └─────┬──────┘ └─────┬──────┘ └─────┬─────┘  │   │
+│  │        │              │              │              │        │   │
+│  │        └──────────────┴──────────────┴──────────────┘        │   │
+│  │                           │                                  │   │
+│  └───────────────────────────┼──────────────────────────────────┘   │
+│                              ▼                                      │
+│  ┌──────────────────────────────────────────────────────────────┐   │
+│  │                  PaperTradingEngine                          │   │
+│  │  ┌─────────────────────────────────────────────────────────┐ │   │
+│  │  │  • Order Matching & Execution                           │ │   │
+│  │  │  • Position Netting (same symbol/side = 1 position)     │ │   │
+│  │  │  • Margin & Leverage Calculations                       │ │   │
+│  │  │  • Fee Deduction (0.05% per trade)                      │ │   │
+│  │  │  • PnL Calculations (unrealized & realized)             │ │   │
+│  │  │  • Liquidation Warning System                           │ │   │
+│  │  └─────────────────────────────────────────────────────────┘ │   │
+│  └──────────────────────────────────────────────────────────────┘   │
+│                              │                                      │
+│           ┌──────────────────┼──────────────────┐                   │
+│           ▼                  ▼                  ▼                   │
+│  ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐        │
+│  │  PriceFeed      │ │  SL/TP Monitor  │ │  SQLite DB      │        │
+│  │  (Live Mudrex)  │ │  (Background)   │ │  (Persistence)  │        │
+│  │                 │ │                 │ │                 │        │
+│  │ • Real prices   │ │ • Checks every  │ │ • Wallet state  │        │
+│  │ • Asset info    │ │   N seconds     │ │ • Positions     │        │
+│  │ • 3s cache      │ │ • Auto-triggers │ │ • Trade history │        │
+│  └─────────────────┘ └─────────────────┘ └─────────────────┘        │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 🔧 How It Works
+
+### 1. Order Execution Flow
+
+```
+User places order
+        │
+        ▼
+┌───────────────────┐
+│ Validate Order    │ ← Check symbol, quantity, margin
+└────────┬──────────┘
+         │
+         ▼
+┌───────────────────┐
+│ Fetch Live Price  │ ← From Mudrex API (cached 3s)
+└────────┬──────────┘
+         │
+         ▼
+┌───────────────────┐
+│ Calculate Margin  │ ← margin = (qty × price) / leverage
+└────────┬──────────┘
+         │
+         ▼
+┌───────────────────┐
+│ Check Balance     │ ← available >= margin + fee?
+└────────┬──────────┘
+         │
+         ▼
+┌───────────────────┐
+│ Execute Trade     │ ← Deduct margin, record fee
+└────────┬──────────┘
+         │
+         ▼
+┌───────────────────┐
+│ Update Position   │ ← Create new or net with existing
+└─────────────────────
+```
+
+### 2. Position Netting
+
+The engine maintains **one position per symbol per side**, just like a real exchange:
+
+```python
+# Order 1: Buy 0.1 BTC @ $100,000
+# Order 2: Buy 0.1 BTC @ $102,000
+# ─────────────────────────────────
+# Result: 1 position of 0.2 BTC @ $101,000 (averaged)
+
+# Order 3: Sell 0.3 BTC (opposite side)
+# ─────────────────────────────────
+# Result: Position flips to SHORT 0.1 BTC
+```
+
+### 3. Margin Calculation
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    MARGIN FORMULA                           │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│   Initial Margin = (Quantity × Entry Price) / Leverage     │
+│                                                             │
+│   Example:                                                  │
+│   • Buy 0.1 BTC @ $100,000 with 10x leverage                │
+│   • Margin = (0.1 × 100,000) / 10 = $1,000                  │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 4. PnL Calculation
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    PNL FORMULAS                             │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│   LONG Position:                                            │
+│   Unrealized PnL = Quantity × (Current Price - Entry Price) │
+│                                                             │
+│   SHORT Position:                                           │
+│   Unrealized PnL = Quantity × (Entry Price - Current Price) │
+│                                                             │
+│   ROE% = (Unrealized PnL / Margin) × 100                    │
+│                                                             │
+│   Example (LONG):                                           │
+│   • Entry: 0.1 BTC @ $100,000, Margin: $1,000               │
+│   • Price rises to $105,000                                 │
+│   • PnL = 0.1 × (105,000 - 100,000) = $500                  │
+│   • ROE = (500 / 1,000) × 100 = 50%                         │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 5. Fee Structure
+
+| Fee Type | Rate | Calculation |
+|----------|------|-------------|
+| Trading Fee | 0.05% | `quantity × price × 0.0005` |
+
+Fees are deducted from balance on:
+- Order execution (opening)
+- Position close (closing)
+
+### 6. Stop-Loss / Take-Profit
+
+The SL/TP monitor runs in a background thread:
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                  SL/TP MONITOR                          │
+├─────────────────────────────────────────────────────────┤
+│                                                         │
+│   Every N seconds:                                      │
+│   ┌─────────────────────────────────────────────────┐   │
+│   │ 1. Fetch current prices for all open positions │   │
+│   │ 2. For each position with SL/TP:               │   │
+│   │    • Check if TP hit first (profit priority)   │   │
+│   │    • Check if SL hit                           │   │
+│   │ 3. Auto-close triggered positions              │   │
+│   │ 4. Record in trade history                     │   │
+│   └─────────────────────────────────────────────────┘   │
+│                                                         │
+│   LONG: SL triggers when price ≤ SL price              │
+│         TP triggers when price ≥ TP price              │
+│                                                         │
+│   SHORT: SL triggers when price ≥ SL price             │
+│          TP triggers when price ≤ TP price             │
+│                                                         │
+└─────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 📊 Data Models
+
+### PaperWallet
+
+```python
+PaperWallet:
+    balance: Decimal          # Total balance (including unrealized PnL)
+    available: Decimal        # Available for new trades
+    locked_margin: Decimal    # Margin locked in positions
+    unrealized_pnl: Decimal   # Current floating PnL
+    realized_pnl: Decimal     # Closed position profits
+    total_fees_paid: Decimal  # Cumulative trading fees
+```
+
+### PaperOrder
+
+```python
+PaperOrder:
+    order_id: str             # Unique ID (paper_ord_xxx)
+    symbol: str               # Trading pair (BTCUSDT)
+    side: OrderSide           # LONG or SHORT
+    order_type: OrderType     # MARKET or LIMIT
+    quantity: Decimal         # Order size
+    price: Decimal            # Limit price (if applicable)
+    filled_price: Decimal     # Execution price
+    status: OrderStatus       # PENDING, FILLED, CANCELLED
+    leverage: int             # Position leverage
+    stoploss_price: Decimal   # Optional SL
+    takeprofit_price: Decimal # Optional TP
+    fee: Decimal              # Trading fee paid
+    created_at: datetime
+    filled_at: datetime
+```
+
+### PaperPosition
+
+```python
+PaperPosition:
+    position_id: str          # Unique ID (paper_pos_xxx)
+    symbol: str               # Trading pair
+    side: PositionSide        # LONG or SHORT
+    quantity: Decimal         # Position size
+    entry_price: Decimal      # Average entry price
+    mark_price: Decimal       # Current market price
+    leverage: int             # Position leverage
+    margin: Decimal           # Locked margin
+    unrealized_pnl: Decimal   # Current floating PnL
+    realized_pnl: Decimal     # PnL when closed
+    roe_percent: float        # Return on equity %
+    stoploss_price: Decimal   # Stop-loss price
+    takeprofit_price: Decimal # Take-profit price
+    liquidation_price: Decimal # Estimated liquidation
+    status: PositionStatus    # OPEN or CLOSED
+    created_at: datetime
+    closed_at: datetime
+```
+
+---
+
+## 🔌 API Reference
+
+### Paper-Specific Methods
+
+```python
+# Get trading statistics
+stats = client.get_paper_statistics()
+# Returns: {
+#   'total_balance': '10500.00',
+#   'realized_pnl': '500.00',
+#   'unrealized_pnl': '0',
+#   'total_fees_paid': '12.50',
+#   'total_trades': 5,
+#   'winning_trades': 3,
+#   'losing_trades': 2,
+#   'win_rate': '60.0%'
+# }
+
+# Get trade history
+trades = client.get_paper_trade_history(symbol="BTCUSDT", limit=50)
+
+# Reset to fresh state
+client.reset_paper_trading(new_balance="10000")
+
+# Export state (for backup)
+state = client.export_paper_state()
+
+# Import state (restore backup)
+client.import_paper_state(state)
+
+# Manual save (auto-saves on close)
+client.save_paper_state()
+```
+
+### Standard SDK Methods (All Work in Paper Mode)
+
+```python
+# Orders
+client.orders.create_market_order(symbol, side, quantity, leverage, ...)
+client.orders.create_limit_order(symbol, side, quantity, price, leverage, ...)
+client.orders.list_open()
+client.orders.cancel(order_id)
+
+# Positions
+client.positions.list_open()
+client.positions.close(position_id)
+client.positions.update_sltp(position_id, stoploss_price, takeprofit_price)
+
+# Wallet
+client.wallet.get_futures_balance()
+
+# Leverage
+client.leverage.set(symbol, leverage, margin_type)
+client.leverage.get(symbol)
+
+# Assets (uses live API)
+client.assets.get(symbol)
+client.assets.list_all()
+```
+
+---
+
+## 💾 Persistence
+
+### Database Location
+
+Default: `~/.mudrex_paper.db`
+
+Custom: `paper_db_path="./my_trades.db"`
+
+### What's Saved
+
+- Wallet state (balance, PnL, fees)
+- All open positions
+- All pending orders
+- Complete trade history
+- Leverage settings
+
+### Auto-Save
+
+State is automatically saved when you call `client.close()`.
+
+```python
+# Always close the client!
+try:
+    # ... trading logic ...
+finally:
+    client.close()  # Saves state
+
+# Or use context manager
+with MudrexClient(mode="paper", ...) as client:
+    # ... trading logic ...
+# Auto-closes and saves
+```
+
+---
+
+## 🆚 Paper vs Live Comparison
+
+| Aspect | Paper Mode | Live Mode |
+|--------|------------|-----------|
+| Real Orders | ❌ Never | ✅ Yes |
+| Real Money | ❌ Simulated | ✅ Real |
+| Market Prices | ✅ Live feed | ✅ Live feed |
+| Order Execution | Instant (simulated) | Exchange matching |
+| Slippage | None (uses last price) | Market dependent |
+| Fees | 0.05% simulated | Actual exchange fees |
+| Liquidation | Warning only | Actual liquidation |
+| State Storage | Local SQLite | Exchange servers |
+| API Secret | Needed for prices | Needed for trading |
+
+---
+
+## 🧪 Testing Without API
+
+For unit tests or offline development:
+
+```python
+from decimal import Decimal
+from mudrex.paper import PaperTradingEngine, MockPriceFeedService
+
+# Create mock prices
+prices = MockPriceFeedService()
+prices.set_price("BTCUSDT", Decimal("100000"))
+prices.set_price("ETHUSDT", Decimal("3500"))
+
+# Create engine
+engine = PaperTradingEngine(
+    initial_balance=Decimal("10000"),
+    price_feed=prices,
 )
 
-try:
-    client = MudrexClient(api_secret="your-secret")
-    order = client.orders.create_market_order(...)
-    
-except MudrexAuthenticationError:
-    print("Invalid API key - check your credentials")
-    
-except MudrexRateLimitError as e:
-    print(f"Rate limited - retry after {e.retry_after}s")
-    
-except MudrexValidationError as e:
-    print(f"Invalid parameters: {e.message}")
-    
-except MudrexAPIError as e:
-    print(f"API error: {e.message}")
-    print(f"Request ID: {e.request_id}")  # For support tickets
+# Place order
+order = engine.create_market_order(
+    symbol="BTCUSDT",
+    side="LONG",
+    quantity=Decimal("0.1"),
+    leverage=10,
+)
+
+# Simulate price movement
+prices.set_price("BTCUSDT", Decimal("105000"))
+
+# Check profit
+positions = engine.list_open_positions()
+print(f"PnL: ${positions[0].unrealized_pnl}")  # $500
 ```
 
-## 🔑 Getting Your API Key
+---
 
-1. **Complete KYC** - Verify your identity with PAN & Aadhaar
-2. **Enable 2FA** - Set up TOTP two-factor authentication
-3. **Generate API Key** - Go to Dashboard → API Keys → Generate
-4. **Save Secret** - Copy and store securely (shown only once!)
+## ⚠️ Limitations (V1)
 
-📖 [Detailed Guide](https://docs.trade.mudrex.com/docs/api-key-management)
+| Limitation | Description |
+|------------|-------------|
+| Margin Mode | ISOLATED only (CROSS coming later) |
+| Partial Fills | Not supported for market orders |
+| Order Book | Not simulated (uses last price) |
+| Slippage | Not simulated |
+| Funding Rates | Not implemented |
+| Liquidation | Warnings only, no auto-liquidation |
 
-## ⚠️ Rate Limits
+---
 
-| Window | Limit |
-|--------|-------|
-| Second | 2 requests |
-| Minute | 50 requests |
-| Hour | 1000 requests |
-| Day | 10000 requests |
+## 📂 Project Structure
 
-The SDK includes automatic rate limiting. For high-frequency use cases, consider:
-- Batching operations where possible
-- Using webhooks for real-time updates
-- Implementing exponential backoff for retries
-
-## 📂 Examples
-
-Check out the [examples/](examples/) folder:
-
-| Example | Description |
-|---------|-------------|
-| [quickstart.py](examples/quickstart.py) | Basic trading workflow with ALL assets |
-| [trading_bot.py](examples/trading_bot.py) | Simple automated trading bot |
-| [async_trading.py](examples/async_trading.py) | Async/concurrent operations |
-| [error_handling.py](examples/error_handling.py) | Robust error handling patterns |
-
-## 🛠️ Development
-
-```bash
-# Clone the repo
-git clone https://github.com/DecentralizedJM/mudrex-trading-sdk.git
-cd mudrex-trading-sdk
-
-# Install with dev dependencies
-pip install -e ".[dev]"
-
-# Run tests
-pytest
-
-# Format code
-black mudrex/
-isort mudrex/
-
-# Type checking
-mypy mudrex/
 ```
+mudrex-futures-papertrading-sdk/
+├── mudrex/
+│   ├── __init__.py
+│   ├── client.py              # MudrexClient with mode="paper"
+│   ├── api/                   # Live API modules
+│   └── paper/                 # Paper trading module
+│       ├── __init__.py
+│       ├── models.py          # Data models
+│       ├── exceptions.py      # Custom exceptions
+│       ├── engine.py          # Core simulation engine
+│       ├── price_feed.py      # Live + mock price feeds
+│       ├── sltp_monitor.py    # Background SL/TP monitor
+│       ├── persistence.py     # SQLite state storage
+│       └── api.py             # SDK-compatible API wrappers
+├── examples/
+│   └── paper_trading.py       # Demo script
+├── docs/
+│   └── PAPER_TRADING.md       # Detailed documentation
+└── README.md
+```
+
+---
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Contributions welcome! Please submit a Pull Request.
 
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-##  Contributors
-
-- [@DecentralizedJM](https://github.com/DecentralizedJM) - Creator & Maintainer
+---
 
 ## 📄 License
 
 MIT License - see [LICENSE](LICENSE) for details.
 
-## 🔗 Links
-
-- [Mudrex Trading API Docs](https://docs.trade.mudrex.com/docs/overview)
-- [SDK Registry (All Languages)](https://github.com/DecentralizedJM/mudrex-sdk-registry)
-- [Mudrex Platform](https://mudrex.com)
+---
 
 ## ⚠️ Disclaimer
 
-**This is an UNOFFICIAL SDK.** This SDK is for educational and informational purposes. Cryptocurrency trading involves significant risk. Always:
-- Start with small amounts
-- Use proper risk management (stop-losses)
+This SDK is for **educational purposes only**. Paper trading results do not guarantee live trading success. Always:
+- Test strategies thoroughly before going live
+- Start with small amounts when trading real money
+- Use proper risk management
 - Never trade more than you can afford to lose
-- Test thoroughly in a safe environment first
 
 ---
 
-Built and maintained by [DecentralizedJM](https://github.com/DecentralizedJM) with ❤️
+Built by [DecentralizedJM](https://github.com/DecentralizedJM) with ❤️
