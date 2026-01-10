@@ -3,7 +3,9 @@
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**Trade with simulated funds using real market prices.** Perfect for strategy testing, learning, and development without risking real money.
+**Paper trading SDK for Mudrex Futures.** Practice trading with simulated funds - no real money at risk.
+
+> 🎮 **Works offline!** No API key required. Just download and start trading with mock prices.
 
 **Built by [DecentralizedJM](https://github.com/DecentralizedJM)**
 
@@ -65,6 +67,85 @@ cd mudrex-futures-papertrading-sdk
 # Install
 pip install -e .
 ```
+
+---
+
+## 🔌 Two Modes: Online & Offline
+
+### Mode 1: With API Key (Live Prices)
+
+Uses real-time prices from Mudrex. Best for realistic practice.
+
+```python
+from mudrex import MudrexClient
+
+client = MudrexClient(
+    api_secret="your-api-secret",  # Needed for live prices
+    mode="paper",
+    paper_balance="10000",
+)
+
+# Real market prices, simulated execution
+order = client.orders.create_market_order(
+    symbol="BTCUSDT",
+    side="LONG",
+    quantity="0.01",
+    leverage="10",
+)
+```
+
+### Mode 2: No API Key (Offline / Mock Prices)
+
+**Zero dependencies.** No API key, no internet, no account needed.
+
+```python
+from decimal import Decimal
+from mudrex.paper import PaperTradingEngine, MockPriceFeedService
+
+# Create mock price feed - YOU control the prices
+prices = MockPriceFeedService()
+prices.set_price("BTCUSDT", Decimal("100000"))
+prices.set_price("ETHUSDT", Decimal("3500"))
+
+# Create engine - no API key needed!
+engine = PaperTradingEngine(
+    initial_balance=Decimal("10000"),
+    price_feed=prices,
+)
+
+# Place trades
+order = engine.create_market_order(
+    symbol="BTCUSDT",
+    side="LONG",
+    quantity=Decimal("0.1"),
+    leverage=10,
+)
+
+# Simulate market movement
+prices.set_price("BTCUSDT", Decimal("105000"))  # Price goes up 5%
+
+# Check your profit
+positions = engine.list_open_positions()
+print(f"PnL: ${positions[0].unrealized_pnl}")  # $500 profit!
+
+# Close position
+engine.close_position(positions[0].position_id)
+
+# Check final balance
+stats = engine.get_statistics()
+print(f"Final Balance: ${stats['total_balance']}")
+```
+
+### Which Mode Should I Use?
+
+| Use Case | Recommended Mode |
+|----------|------------------|
+| Learning to trade | Offline (Mock) |
+| Testing a strategy idea | Offline (Mock) |
+| Backtesting with custom prices | Offline (Mock) |
+| Unit testing your bot | Offline (Mock) |
+| Realistic practice | Online (API) |
+| Pre-production testing | Online (API) |
 
 ---
 
