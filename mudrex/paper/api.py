@@ -479,9 +479,7 @@ class PaperWalletAPI:
         
         return FuturesBalance(
             balance=str(wallet.balance),
-            available=str(wallet.available),
-            locked=str(wallet.locked_margin),
-            unrealized_pnl=str(wallet.unrealized_pnl),
+            locked_amount=str(wallet.locked_margin),
         )
     
     def transfer_to_futures(self, amount: str) -> bool:

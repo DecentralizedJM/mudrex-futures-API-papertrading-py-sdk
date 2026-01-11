@@ -173,7 +173,9 @@ class MudrexClient:
             PaperFeesAPI,
         )
         
-        price_feed = PriceFeedService(self)
+        # Create AssetsAPI first - needed for price feed
+        self.assets = AssetsAPI(self)
+        price_feed = PriceFeedService(self.assets)
         
         if db_path:
             self._paper_db = PaperDB(db_path)
@@ -206,10 +208,9 @@ class MudrexClient:
             logger.info(f"Started SL/TP monitor (interval: {sltp_interval}s)")
         
         self.wallet = PaperWalletAPI(self._paper_engine)
-        self.assets = AssetsAPI(self)
-        self.leverage = PaperLeverageAPI(self._paper_engine)
-        self.orders = PaperOrdersAPI(self._paper_engine)
-        self.positions = PaperPositionsAPI(self._paper_engine)
+        self.leverage = PaperLeverageAPI(self._paper_engine, self.assets)
+        self.orders = PaperOrdersAPI(self._paper_engine, self.assets)
+        self.positions = PaperPositionsAPI(self._paper_engine, self.assets)
         self.fees = PaperFeesAPI(self._paper_engine)
     
     def _build_url(self, endpoint: str) -> str:
@@ -295,11 +296,8 @@ class MudrexClient:
         if self.mode != "paper":
             raise RuntimeError("save_paper_state() only works in paper mode")
         
-        state = self._paper_engine.export_state()
-        self._paper_db.save_state(state)
-        
-        for trade in self._paper_engine._trade_history:
-            self._paper_db.record_trade(trade)
+        # PaperDB.save_state expects the engine, not a dict
+        self._paper_db.save_state(self._paper_engine)
         
         logger.info("Paper trading state saved")
     
@@ -420,8 +418,7 @@ class MudrexClient:
             if self._paper_sltp_monitor:
                 self._paper_sltp_monitor.stop()
             
-            if self._paper_db:
-                self._paper_db.close()
+            # PaperDB uses context manager, no explicit close needed
         
         self._session.close()
     
