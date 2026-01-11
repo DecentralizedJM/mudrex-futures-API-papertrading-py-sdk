@@ -202,6 +202,10 @@ client = MudrexClient(
     paper_db_path="./trades.db",     # Custom database path
     paper_sltp_monitor=True,         # Enable SL/TP background monitor
     paper_sltp_interval=5,           # Check SL/TP every 5 seconds
+    
+    # V2: Funding & Liquidation
+    enable_funding=True,             # Enable 8-hour funding payments
+    enable_liquidation=True,         # Enable auto-liquidation
 )
 ```
 
@@ -595,7 +599,185 @@ print(f"PnL: ${positions[0].unrealized_pnl}")  # $500
 
 ---
 
-## ⚠️ Limitations (V1)
+
+## 🆕 V2 Features: Funding & Liquidation
+
+### Funding Rate Payments
+
+Funding is exchanged every 8 hours (00:00, 08:00, 16:00 UTC) just like real exchanges:
+
+```python
+from mudrex import MudrexClient
+
+client = MudrexClient(
+    api_secret="...",
+    mode="paper",
+    paper_balance="10000",
+    enable_funding=True,  # Enable funding payments
+)
+
+# Place a position
+client.orders.create_market_order(
+    symbol="BTCUSDT",
+    side="LONG",
+    quantity="0.1",
+    leverage="10",
+)
+
+# Funding is automatically applied every 8 hours:
+# - Positive rate: LONG pays SHORT
+# - Negative rate: SHORT pays LONG
+# - Payment = Position Value × Funding Rate
+
+# Check cumulative funding paid
+positions = client.positions.list_open()
+print(f"Funding paid: ${positions[0].cumulative_funding}")
+```
+
+### Auto-Liquidation
+
+Positions are automatically liquidated when margin is exhausted:
+
+```python
+client = MudrexClient(
+    api_secret="...",
+    mode="paper",
+    paper_balance="10000",
+    enable_liquidation=True,  # Enable auto-liquidation
+)
+
+# Place a high-leverage position
+order = client.orders.create_market_order(
+    symbol="BTCUSDT",
+    side="LONG",
+    quantity="0.1",
+    leverage="20",  # 20x = ~5% liquidation distance
+)
+
+# Check liquidation price
+positions = client.positions.list_open()
+print(f"Entry: ${positions[0].entry_price}")
+print(f"Liq Price: ${positions[0].liquidation_price}")
+
+# If price drops to liquidation price, position is auto-closed
+# with total loss of margin + 0.5% liquidation fee
+```
+
+### Liquidation Price Formula
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                 LIQUIDATION FORMULAS                        │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│   LONG Position:                                            │
+│   Liq Price = Entry × (1 - 1/Leverage + MMR)                │
+│                                                             │
+│   SHORT Position:                                           │
+│   Liq Price = Entry × (1 + 1/Leverage - MMR)                │
+│                                                             │
+│   Where MMR (Maintenance Margin Rate) = 0.5%                │
+│                                                             │
+│   Example (LONG 10x):                                       │
+│   • Entry: $100,000                                         │
+│   • Liq = 100,000 × (1 - 0.1 + 0.005) = $90,500             │
+│   • Price drops 9.5% → LIQUIDATED                           │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+
+## 🆕 V2 Features: Funding & Liquidation
+
+### Funding Rate Payments
+
+Funding is exchanged every 8 hours (00:00, 08:00, 16:00 UTC) just like real exchanges:
+
+```python
+from mudrex import MudrexClient
+
+client = MudrexClient(
+    api_secret="...",
+    mode="paper",
+    paper_balance="10000",
+    enable_funding=True,  # Enable funding payments
+)
+
+# Place a position
+client.orders.create_market_order(
+    symbol="BTCUSDT",
+    side="LONG",
+    quantity="0.1",
+    leverage="10",
+)
+
+# Funding is automatically applied every 8 hours:
+# - Positive rate: LONG pays SHORT
+# - Negative rate: SHORT pays LONG
+# - Payment = Position Value × Funding Rate
+
+# Check cumulative funding paid
+positions = client.positions.list_open()
+print(f"Funding paid: ${positions[0].cumulative_funding}")
+```
+
+### Auto-Liquidation
+
+Positions are automatically liquidated when margin is exhausted:
+
+```python
+client = MudrexClient(
+    api_secret="...",
+    mode="paper",
+    paper_balance="10000",
+    enable_liquidation=True,  # Enable auto-liquidation
+)
+
+# Place a high-leverage position
+order = client.orders.create_market_order(
+    symbol="BTCUSDT",
+    side="LONG",
+    quantity="0.1",
+    leverage="20",  # 20x = ~5% liquidation distance
+)
+
+# Check liquidation price
+positions = client.positions.list_open()
+print(f"Entry: ${positions[0].entry_price}")
+print(f"Liq Price: ${positions[0].liquidation_price}")
+
+# If price drops to liquidation price, position is auto-closed
+# with total loss of margin + 0.5% liquidation fee
+```
+
+### Liquidation Price Formula
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                 LIQUIDATION FORMULAS                        │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│   LONG Position:                                            │
+│   Liq Price = Entry × (1 - 1/Leverage + MMR)                │
+│                                                             │
+│   SHORT Position:                                           │
+│   Liq Price = Entry × (1 + 1/Leverage - MMR)                │
+│                                                             │
+│   Where MMR (Maintenance Margin Rate) = 0.5%                │
+│                                                             │
+│   Example (LONG 10x):                                       │
+│   • Entry: $100,000                                         │
+│   • Liq = 100,000 × (1 - 0.1 + 0.005) = $90,500             │
+│   • Price drops 9.5% → LIQUIDATED                           │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## ⚠️ Limitations
 
 | Limitation | Description |
 |------------|-------------|
@@ -603,8 +785,8 @@ print(f"PnL: ${positions[0].unrealized_pnl}")  # $500
 | Partial Fills | Not supported for market orders |
 | Order Book | Not simulated (uses last price) |
 | Slippage | Not simulated |
-| Funding Rates | Not implemented |
-| Liquidation | Warnings only, no auto-liquidation |
+| ~~Funding Rates~~ | ✅ Implemented in V2 |
+| ~~Liquidation~~ | ✅ Implemented in V2 |
 
 ---
 
@@ -624,7 +806,10 @@ mudrex-futures-papertrading-sdk/
 │       ├── price_feed.py      # Live + mock price feeds
 │       ├── sltp_monitor.py    # Background SL/TP monitor
 │       ├── persistence.py     # SQLite state storage
-│       └── api.py             # SDK-compatible API wrappers
+│       ├── api.py             # SDK-compatible API wrappers
+│       ├── external_data.py   # External market data (V2)
+│       ├── funding.py         # Funding rate engine (V2)
+│       └── liquidation.py     # Liquidation engine (V2)
 ├── examples/
 │   └── paper_trading.py       # Demo script
 ├── docs/
