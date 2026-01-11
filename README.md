@@ -5,7 +5,7 @@
 
 **Paper trading SDK for Mudrex Futures.** Practice trading with simulated funds - no real money at risk.
 
-> 🎮 **Works offline!** No API key required. Just download and start trading with mock prices.
+> 🎮 **Works offline too (offline mode)!** No API key required. Just download and start trading with mock prices.
 
 **Built by [DecentralizedJM](https://github.com/DecentralizedJM)**
 
