@@ -410,6 +410,13 @@ class PaperTradingEngine:
         execution_price: Decimal
     ) -> PaperPosition:
         """Create a new position from an order."""
+        # Calculate liquidation price
+        liq_price = self._calculate_liquidation_price(
+            entry_price=execution_price,
+            leverage=order.leverage,
+            side=order.side,
+        )
+        
         position = PaperPosition(
             position_id=generate_paper_id("pos"),
             symbol=order.symbol,
@@ -419,12 +426,18 @@ class PaperTradingEngine:
             entry_price=execution_price,
             leverage=order.leverage,
             margin=order.margin_used,
+            stoploss_price=order.stoploss_price,
+            takeprofit_price=order.takeprofit_price,
+            liquidation_price=liq_price,
         )
         
         self.positions[position.position_id] = position
         
         if self.enable_logging:
-            logger.info(f"Position opened: {position.position_id} {order.side} {order.quantity} {order.symbol}")
+            logger.info(
+                f"Position opened: {position.position_id} {order.side} {order.quantity} {order.symbol} "
+                f"@ {execution_price} (liq: {liq_price})"
+            )
         
         return position
     
@@ -566,7 +579,9 @@ class PaperTradingEngine:
     def close_position(
         self,
         position_id: str,
-        quantity: Optional[Decimal] = None
+        quantity: Optional[Decimal] = None,
+        close_price: Optional[Decimal] = None,
+        reason: str = "MANUAL",
     ) -> PaperPosition:
         """
         Close a position (full or partial).
@@ -574,6 +589,8 @@ class PaperTradingEngine:
         Args:
             position_id: Position to close
             quantity: Quantity to close (None = full close)
+            close_price: Optional override for close price (default: current market)
+            reason: Close reason ("MANUAL", "STOPLOSS", "TAKEPROFIT", "LIQUIDATED")
             
         Returns:
             Updated position
@@ -583,11 +600,25 @@ class PaperTradingEngine:
         if position.status != PaperPositionStatus.OPEN:
             raise PositionAlreadyClosedError(position_id)
         
-        current_price = self.price_feed.get_price(position.symbol)
+        # Use provided price or fetch current
+        if close_price is not None:
+            current_price = close_price
+        else:
+            current_price = self.price_feed.get_price(position.symbol)
+        
+        # Map reason string to enum
+        reason_map = {
+            "MANUAL": CloseReason.MANUAL,
+            "STOPLOSS": CloseReason.STOPLOSS,
+            "TAKEPROFIT": CloseReason.TAKEPROFIT,
+            "LIQUIDATED": CloseReason.LIQUIDATION,
+            "LIQUIDATION": CloseReason.LIQUIDATION,
+        }
+        close_reason = reason_map.get(reason.upper(), CloseReason.MANUAL)
         
         if quantity is None or quantity >= position.quantity:
             # Full close
-            self._close_position_internal(position, current_price, CloseReason.MANUAL)
+            self._close_position_internal(position, current_price, close_reason)
         else:
             # Partial close
             pnl = position.partial_close(quantity, current_price)
@@ -856,6 +887,48 @@ class PaperTradingEngine:
         
         return True
     
+    # =========================================================================
+    # Liquidation Price Calculation
+    # =========================================================================
+    
+    # Default maintenance margin rate (0.5%)
+    MAINTENANCE_MARGIN_RATE = Decimal("0.005")
+    
+    def _calculate_liquidation_price(
+        self,
+        entry_price: Decimal,
+        leverage: int,
+        side: str,
+        mmr: Decimal = None,
+    ) -> Decimal:
+        """
+        Calculate the liquidation price for a position (ISOLATED margin).
+        
+        Formula:
+        LONG:  Liq = Entry × (1 - 1/Leverage + MMR)
+        SHORT: Liq = Entry × (1 + 1/Leverage - MMR)
+        
+        Args:
+            entry_price: Position entry price
+            leverage: Position leverage
+            side: "LONG" or "SHORT"
+            mmr: Maintenance margin rate (default 0.5%)
+            
+        Returns:
+            Liquidation price
+        """
+        mmr = mmr or self.MAINTENANCE_MARGIN_RATE
+        leverage_factor = Decimal("1") / Decimal(leverage)
+        
+        if side.upper() == "LONG":
+            # LONG liquidates when price drops
+            liq_price = entry_price * (Decimal("1") - leverage_factor + mmr)
+        else:
+            # SHORT liquidates when price rises
+            liq_price = entry_price * (Decimal("1") + leverage_factor - mmr)
+        
+        return liq_price.quantize(Decimal("0.01"))
+
     # =========================================================================
     # Wallet Operations
     # =========================================================================

@@ -140,3 +140,50 @@ __all__ = [
     "PaperLeverageAPI",
     "PaperFeesAPI",
 ]
+
+# External data service (V2)
+from mudrex.paper.external_data import (
+    ExternalDataService,
+    MockExternalDataService,
+    ExternalDataError,
+    TickerInfo,
+    FundingInfo,
+    Kline,
+)
+
+# Funding rate monitor (V2)
+from mudrex.paper.funding import (
+    FundingMonitor,
+    FundingPayment,
+    FundingStats,
+)
+
+# Liquidation engine (V2)
+from mudrex.paper.liquidation import (
+    LiquidationEngine,
+    LiquidationEvent,
+    LiquidationReason,
+    MarginStatus,
+)
+
+# Update __all__ with V2 exports
+__all__.extend([
+    # External data (V2)
+    "ExternalDataService",
+    "MockExternalDataService",
+    "ExternalDataError",
+    "TickerInfo",
+    "FundingInfo",
+    "Kline",
+    
+    # Funding (V2)
+    "FundingMonitor",
+    "FundingPayment",
+    "FundingStats",
+    
+    # Liquidation (V2)
+    "LiquidationEngine",
+    "LiquidationEvent",
+    "LiquidationReason",
+    "MarginStatus",
+])

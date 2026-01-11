@@ -273,7 +273,10 @@ class PaperPosition:
     # Risk Management
     stoploss_price: Optional[Decimal] = None
     takeprofit_price: Optional[Decimal] = None
-    liquidation_price: Optional[Decimal] = None  # Estimated, warning only
+    liquidation_price: Optional[Decimal] = None  # Calculated by LiquidationEngine
+    
+    # Funding
+    cumulative_funding: Decimal = Decimal("0")  # Net funding received/paid
     
     # Timestamps
     opened_at: datetime = field(default_factory=datetime.utcnow)
@@ -400,6 +403,7 @@ class PaperPosition:
             "stoploss_price": str(self.stoploss_price) if self.stoploss_price else None,
             "takeprofit_price": str(self.takeprofit_price) if self.takeprofit_price else None,
             "liquidation_price": str(self.liquidation_price) if self.liquidation_price else None,
+            "cumulative_funding": str(self.cumulative_funding),
             "opened_at": self.opened_at.isoformat(),
             "closed_at": self.closed_at.isoformat() if self.closed_at else None,
             "updated_at": self.updated_at.isoformat(),
@@ -429,6 +433,7 @@ class PaperPosition:
             stoploss_price=Decimal(data["stoploss_price"]) if data.get("stoploss_price") else None,
             takeprofit_price=Decimal(data["takeprofit_price"]) if data.get("takeprofit_price") else None,
             liquidation_price=Decimal(data["liquidation_price"]) if data.get("liquidation_price") else None,
+            cumulative_funding=Decimal(data.get("cumulative_funding", "0")),
             opened_at=parse_dt(data["opened_at"]) or datetime.utcnow(),
             closed_at=parse_dt(data.get("closed_at")),
             updated_at=parse_dt(data.get("updated_at")) or datetime.utcnow(),

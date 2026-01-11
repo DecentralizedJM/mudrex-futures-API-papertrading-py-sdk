@@ -83,6 +83,8 @@ class MudrexClient:
         paper_db_path: SQLite database path for paper trading persistence
         paper_sltp_monitor: Enable background SL/TP monitoring (default: False)
         paper_sltp_interval: SL/TP check interval in seconds (default: 5)
+        paper_funding: Enable funding rate payments (default: False)
+        paper_liquidation: Enable auto-liquidation (default: False)
     """
     
     BASE_URL = "https://trade.mudrex.com/fapi/v1"
@@ -100,6 +102,8 @@ class MudrexClient:
         paper_db_path: Optional[str] = None,
         paper_sltp_monitor: bool = False,
         paper_sltp_interval: int = 5,
+        paper_funding: bool = False,
+        paper_liquidation: bool = False,
     ):
         if not api_secret:
             raise ValueError("api_secret is required")
@@ -131,6 +135,12 @@ class MudrexClient:
         self._paper_engine = None
         self._paper_db = None
         self._paper_sltp_monitor = None
+        self._paper_funding_monitor = None
+        self._paper_liquidation_engine = None
+        self._external_data = None
+        self._paper_funding_monitor = None
+        self._paper_liquidation_engine = None
+        self._external_data = None
         
         if self.mode == "paper":
             self._init_paper_trading(
@@ -138,6 +148,8 @@ class MudrexClient:
                 db_path=paper_db_path,
                 sltp_monitor=paper_sltp_monitor,
                 sltp_interval=paper_sltp_interval,
+                enable_funding=paper_funding,
+                enable_liquidation=paper_liquidation,
             )
         else:
             self._init_live_trading()
@@ -157,6 +169,8 @@ class MudrexClient:
         db_path: Optional[str],
         sltp_monitor: bool,
         sltp_interval: int,
+        enable_funding: bool = False,
+        enable_liquidation: bool = False,
     ) -> None:
         """Initialize paper trading engine and APIs."""
         from mudrex.paper import (
@@ -165,6 +179,12 @@ class MudrexClient:
             PaperDB,
             SLTPMonitor,
         )
+        from mudrex.paper.external_data import ExternalDataService
+        from mudrex.paper.funding import FundingMonitor
+        from mudrex.paper.liquidation import LiquidationEngine
+        from mudrex.paper.external_data import ExternalDataService
+        from mudrex.paper.funding import FundingMonitor
+        from mudrex.paper.liquidation import LiquidationEngine
         from mudrex.paper.api import (
             PaperOrdersAPI,
             PaperPositionsAPI,
@@ -212,6 +232,54 @@ class MudrexClient:
         self.orders = PaperOrdersAPI(self._paper_engine, self.assets)
         self.positions = PaperPositionsAPI(self._paper_engine, self.assets)
         self.fees = PaperFeesAPI(self._paper_engine)
+        
+        # Initialize external data service for funding rates and mark prices
+        if enable_funding or enable_liquidation:
+            self._external_data = ExternalDataService()
+        
+        # Initialize funding monitor
+        if enable_funding and self._external_data:
+            self._paper_funding_monitor = FundingMonitor(
+                engine=self._paper_engine,
+                external_data=self._external_data,
+                enabled=True,
+            )
+            self._paper_funding_monitor.start()
+            logger.info("Funding rate monitor started (8-hour intervals)")
+        
+        # Initialize liquidation engine
+        if enable_liquidation and self._external_data:
+            self._paper_liquidation_engine = LiquidationEngine(
+                engine=self._paper_engine,
+                external_data=self._external_data,
+                enabled=True,
+            )
+            self._paper_liquidation_engine.start()
+            logger.info("Liquidation engine started")
+        
+        # Initialize external data service for funding rates and mark prices
+        if enable_funding or enable_liquidation:
+            self._external_data = ExternalDataService()
+        
+        # Initialize funding monitor
+        if enable_funding and self._external_data:
+            self._paper_funding_monitor = FundingMonitor(
+                engine=self._paper_engine,
+                external_data=self._external_data,
+                enabled=True,
+            )
+            self._paper_funding_monitor.start()
+            logger.info("Funding rate monitor started (8-hour intervals)")
+        
+        # Initialize liquidation engine
+        if enable_liquidation and self._external_data:
+            self._paper_liquidation_engine = LiquidationEngine(
+                engine=self._paper_engine,
+                external_data=self._external_data,
+                enabled=True,
+            )
+            self._paper_liquidation_engine.start()
+            logger.info("Liquidation engine started")
     
     def _build_url(self, endpoint: str) -> str:
         """Build full URL from endpoint path."""
@@ -331,6 +399,54 @@ class MudrexClient:
         self.positions = PaperPositionsAPI(self._paper_engine)
         self.fees = PaperFeesAPI(self._paper_engine)
         
+        # Initialize external data service for funding rates and mark prices
+        if enable_funding or enable_liquidation:
+            self._external_data = ExternalDataService()
+        
+        # Initialize funding monitor
+        if enable_funding and self._external_data:
+            self._paper_funding_monitor = FundingMonitor(
+                engine=self._paper_engine,
+                external_data=self._external_data,
+                enabled=True,
+            )
+            self._paper_funding_monitor.start()
+            logger.info("Funding rate monitor started (8-hour intervals)")
+        
+        # Initialize liquidation engine
+        if enable_liquidation and self._external_data:
+            self._paper_liquidation_engine = LiquidationEngine(
+                engine=self._paper_engine,
+                external_data=self._external_data,
+                enabled=True,
+            )
+            self._paper_liquidation_engine.start()
+            logger.info("Liquidation engine started")
+        
+        # Initialize external data service for funding rates and mark prices
+        if enable_funding or enable_liquidation:
+            self._external_data = ExternalDataService()
+        
+        # Initialize funding monitor
+        if enable_funding and self._external_data:
+            self._paper_funding_monitor = FundingMonitor(
+                engine=self._paper_engine,
+                external_data=self._external_data,
+                enabled=True,
+            )
+            self._paper_funding_monitor.start()
+            logger.info("Funding rate monitor started (8-hour intervals)")
+        
+        # Initialize liquidation engine
+        if enable_liquidation and self._external_data:
+            self._paper_liquidation_engine = LiquidationEngine(
+                engine=self._paper_engine,
+                external_data=self._external_data,
+                enabled=True,
+            )
+            self._paper_liquidation_engine.start()
+            logger.info("Liquidation engine started")
+        
         if self._paper_sltp_monitor:
             from mudrex.paper import SLTPMonitor
             interval = self._paper_sltp_monitor._check_interval
@@ -396,6 +512,54 @@ class MudrexClient:
         self.positions = PaperPositionsAPI(self._paper_engine)
         self.fees = PaperFeesAPI(self._paper_engine)
         
+        # Initialize external data service for funding rates and mark prices
+        if enable_funding or enable_liquidation:
+            self._external_data = ExternalDataService()
+        
+        # Initialize funding monitor
+        if enable_funding and self._external_data:
+            self._paper_funding_monitor = FundingMonitor(
+                engine=self._paper_engine,
+                external_data=self._external_data,
+                enabled=True,
+            )
+            self._paper_funding_monitor.start()
+            logger.info("Funding rate monitor started (8-hour intervals)")
+        
+        # Initialize liquidation engine
+        if enable_liquidation and self._external_data:
+            self._paper_liquidation_engine = LiquidationEngine(
+                engine=self._paper_engine,
+                external_data=self._external_data,
+                enabled=True,
+            )
+            self._paper_liquidation_engine.start()
+            logger.info("Liquidation engine started")
+        
+        # Initialize external data service for funding rates and mark prices
+        if enable_funding or enable_liquidation:
+            self._external_data = ExternalDataService()
+        
+        # Initialize funding monitor
+        if enable_funding and self._external_data:
+            self._paper_funding_monitor = FundingMonitor(
+                engine=self._paper_engine,
+                external_data=self._external_data,
+                enabled=True,
+            )
+            self._paper_funding_monitor.start()
+            logger.info("Funding rate monitor started (8-hour intervals)")
+        
+        # Initialize liquidation engine
+        if enable_liquidation and self._external_data:
+            self._paper_liquidation_engine = LiquidationEngine(
+                engine=self._paper_engine,
+                external_data=self._external_data,
+                enabled=True,
+            )
+            self._paper_liquidation_engine.start()
+            logger.info("Liquidation engine started")
+        
         if self._paper_sltp_monitor:
             from mudrex.paper import SLTPMonitor
             interval = self._paper_sltp_monitor._check_interval
@@ -417,6 +581,12 @@ class MudrexClient:
             
             if self._paper_sltp_monitor:
                 self._paper_sltp_monitor.stop()
+            
+            if self._paper_funding_monitor:
+                self._paper_funding_monitor.stop()
+            
+            if self._paper_liquidation_engine:
+                self._paper_liquidation_engine.stop()
             
             # PaperDB uses context manager, no explicit close needed
         
