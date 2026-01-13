@@ -11,6 +11,24 @@
 
 ---
 
+## 🚀 Want to Use with ChatGPT or AI Tools?
+
+**Get a public endpoint in 5 minutes:**
+
+1. **Deploy to Railway** (free) → Get URL: `https://YOUR-APP.up.railway.app`
+2. **Connect to ChatGPT** → Import: `https://YOUR-APP.up.railway.app/openapi.json`
+3. **Start trading!** → "Buy 0.1 BTC", "Check my balance", etc.
+
+👉 **[📖 Quick Start: Get Your Endpoint](docs/QUICK_START_ENDPOINT.md)** - Complete step-by-step guide
+
+**Your endpoint URL format:**
+- API Docs: `https://YOUR-APP.up.railway.app/docs`
+- **For ChatGPT**: `https://YOUR-APP.up.railway.app/openapi.json` ⬅️ Use this one!
+
+---
+
+---
+
 ## 🎯 What is Paper Trading?
 
 Paper trading lets you practice trading with **fake money** but **real market prices**. It's like a flight simulator for traders - all the realism, none of the risk.
@@ -61,8 +79,8 @@ print(f"PnL: ${positions[0].unrealized_pnl}")
 
 ```bash
 # Clone the repository
-git clone https://github.com/DecentralizedJM/mudrex-futures-papertrading-sdk.git
-cd mudrex-futures-papertrading-sdk
+git clone https://github.com/DecentralizedJM/mudrex-futures-API-papertrading-py-sdk.git
+cd mudrex-futures-API-papertrading-py-sdk
 
 # Install
 pip install -e .
@@ -151,27 +169,60 @@ print(f"Final Balance: ${stats['total_balance']}")
 
 ## 🤖 AI & MCP Integration
 
-This SDK works seamlessly with AI coding assistants like **Claude**, **ChatGPT**, and **Cursor** via the Model Context Protocol (MCP) or simple HTTP API.
+Use this SDK with **ChatGPT**, **Claude**, **Cursor**, or any AI tool to manage your paper trading portfolio!
 
-### 1. Claude Desktop / Cursor (Local MCP)
-Connect your AI assistant directly to your local paper trading engine. Ask Claude to "buy 1 BTC" or "check my PnL" directly in your chat!
+### 🚀 Quick Start: Get Your Public Endpoint (5 Minutes)
+
+**Want to use with ChatGPT or any AI tool? Get a public endpoint in 5 minutes:**
+
+1. **Deploy to Railway** (Free tier available)
+   - Fork this repo → Deploy on [Railway.app](https://railway.app)
+   - Get your URL: `https://YOUR-APP.up.railway.app`
+
+2. **Connect to ChatGPT**
+   - Create Custom GPT → Actions → Import from URL
+   - Paste: `https://YOUR-APP.up.railway.app/openapi.json`
+
+3. **Start Trading!**
+   - "Check my balance"
+   - "Buy 0.1 BTC with 10x leverage"
+   - "Show my positions"
+
+👉 **[📖 Complete Quick Start Guide](docs/QUICK_START_ENDPOINT.md)** - Step-by-step instructions
+
+---
+
+### Two Integration Methods
+
+#### 1. Cloud API Server (ChatGPT, Web LLMs)
+**Get a public endpoint** → Use with any AI tool via HTTP
+
+- ✅ Works with ChatGPT Custom GPTs
+- ✅ Works with any web-based LLM
+- ✅ Multi-user support
+- ✅ Public URL you can share
+
+**Quick Deploy:**
+- [Railway](https://railway.app) (Recommended)
+- [Render](https://render.com)
+- [Fly.io](https://fly.io)
+
+👉 **[📖 Cloud API Setup Guide](docs/MCP_GUIDE.md#2-cloud-api-server-for-chatgpt--web-llms)**
+
+#### 2. Local MCP Server (Claude Desktop, Cursor)
+**Run locally** → Direct integration with desktop AI tools
+
+- ✅ Zero latency (local)
+- ✅ Complete privacy
+- ✅ Works offline
+- ✅ Claude Desktop & Cursor support
 
 ```bash
 # Run the local MCP server (Offline Mode)
 python -m mudrex.mcp_server --offline
 ```
 
-👉 **[Read the Full MCP Setup Guide](docs/MCP_GUIDE.md)**
-
-### 2. ChatGPT / Web Agents (Cloud API)
-Deploy the API server to the cloud (e.g., Railway) to let ChatGPT manage your paper trading portfolio.
-
-```bash
-# Start the HTTP API server
-python -m mudrex.api_server
-```
-
-👉 **[Read the Cloud API Guide](docs/MCP_GUIDE.md#2-cloud-api-server-for-chatgpt--web-llms)**
+👉 **[📖 Local MCP Setup Guide](docs/MCP_GUIDE.md#1-local-mcp-server-for-claude-desktop--cursor)**
 
 ---
 
@@ -730,7 +781,7 @@ print(f"Liq Price: ${positions[0].liquidation_price}")
 ## 📂 Project Structure
 
 ```
-mudrex-futures-papertrading-sdk/
+mudrex-futures-API-papertrading-py-sdk/
 ├── mudrex/
 │   ├── __init__.py
 │   ├── client.py              # MudrexClient with mode="paper"

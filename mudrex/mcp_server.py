@@ -40,7 +40,7 @@ from mudrex.paper import (
 )
 from mudrex.paper.models import OrderSide
 from mudrex.paper.exceptions import (
-    InsufficientBalanceError,
+    InsufficientMarginError,
     InvalidOrderError,
     PositionNotFoundError,
 )
@@ -188,7 +188,7 @@ async def handle_place_market_order(
             "message": f"Opened {order.side.value} position: {qty} {sym} @ ${order.price}",
         }
         
-    except InsufficientBalanceError as e:
+    except InsufficientMarginError as e:
         return {"success": False, "error": f"Insufficient balance: {e}"}
     except InvalidOrderError as e:
         return {"success": False, "error": f"Invalid order: {e}"}
@@ -238,7 +238,7 @@ async def handle_place_limit_order(
             "message": f"Limit order placed: {order.side.value} {qty} {sym} @ ${limit_price}",
         }
         
-    except InsufficientBalanceError as e:
+    except InsufficientMarginError as e:
         return {"success": False, "error": f"Insufficient balance: {e}"}
     except Exception as e:
         return {"success": False, "error": str(e)}

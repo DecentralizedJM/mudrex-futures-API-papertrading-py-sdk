@@ -22,7 +22,7 @@ pip install mcp
 ### 2. Install the Paper Trading SDK
 
 ```bash
-pip install git+https://github.com/DecentralizedJM/mudrex-futures-papertrading-sdk.git
+pip install git+https://github.com/DecentralizedJM/mudrex-futures-API-papertrading-py-sdk.git
 ```
 
 ## Running the Server
@@ -260,4 +260,4 @@ Check the logs for errors. Common issues:
 
 Found a bug or want to add a feature? PRs welcome!
 
-https://github.com/DecentralizedJM/mudrex-futures-papertrading-sdk
+https://github.com/DecentralizedJM/mudrex-futures-API-papertrading-py-sdk

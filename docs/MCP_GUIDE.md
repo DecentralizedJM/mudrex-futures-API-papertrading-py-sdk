@@ -21,8 +21,8 @@ The Model Context Protocol (MCP) allows AI coding assistants to directly "talk" 
 
 1. Clone this repo and install dependencies:
    ```bash
-   git clone https://github.com/DecentralizedJM/mudrex-futures-papertrading-sdk.git
-   cd mudrex-futures-papertrading-sdk
+   git clone https://github.com/DecentralizedJM/mudrex-futures-API-papertrading-py-sdk.git
+   cd mudrex-futures-API-papertrading-py-sdk
    pip install -e .
    pip install mcp
    ```
@@ -54,9 +54,9 @@ The Model Context Protocol (MCP) allows AI coding assistants to directly "talk" 
            "--offline",
            "--balance", "50000"
          ],
-         "cwd": "/ABSOLUTE/PATH/TO/mudrex-futures-papertrading-sdk",
+         "cwd": "/ABSOLUTE/PATH/TO/mudrex-futures-API-papertrading-py-sdk",
          "env": {
-            "PYTHONPATH": "/ABSOLUTE/PATH/TO/mudrex-futures-papertrading-sdk"
+            "PYTHONPATH": "/ABSOLUTE/PATH/TO/mudrex-futures-API-papertrading-py-sdk"
          }
        }
      }
@@ -79,24 +79,48 @@ The Model Context Protocol (MCP) allows AI coding assistants to directly "talk" 
 
 If you want to use the trading engine with ChatGPT (via Custom GPTs) or any other web-based agent, use the HTTP API Server.
 
+👉 **🚀 [Quick Start Guide: Get Your Endpoint in 5 Minutes](QUICK_START_ENDPOINT.md)**
+
 ### Deployment (Railway)
 
-1. Fork/Clone this repository.
-2. Deploy to [Railway.app](https://railway.app/).
-   - Railway will auto-detect the `Procfile` and `Dockerfile`.
-   - No special usage of `ngrok` is needed!
-3. Copy your public domain (e.g., `https://web-production-xyz.up.railway.app`).
+1. **Fork this repository** on GitHub
+   - Click "Fork" at: https://github.com/DecentralizedJM/mudrex-futures-API-papertrading-py-sdk
+
+2. **Deploy to Railway**
+   - Go to [Railway.app](https://railway.app/)
+   - Sign up (free tier available)
+   - Click "New Project" → "Deploy from GitHub repo"
+   - Select your forked repository
+   - Railway auto-detects the `Procfile` and `Dockerfile`
+
+3. **Get Your Public URL**
+   - Railway automatically deploys (takes 2-3 minutes)
+   - Click on your service → "Settings" → "Domains"
+   - Copy your public URL: `https://YOUR-APP.up.railway.app`
+   - **This is your endpoint!** Use it with ChatGPT or any AI tool.
 
 ### Connecting to ChatGPT
 
-1. Go to **Explore GPTs** -> **Create**.
-2. Go to **Configure** -> **Actions** -> **Create new action**.
-3. Select **Import from URL**.
-4. Paste your Railway URL followed by `/openapi.json`:
-   ```
-   https://YOUR-RAILWAY-APP.app/openapi.json
-   ```
-5. ChatGPT will import all endpoints (`/orders`, `/positions`, etc.).
+1. **Go to ChatGPT Custom GPTs**
+   - Visit: https://chat.openai.com/gpts
+   - Click "Create" → "Configure"
+
+2. **Add Action**
+   - Go to "Actions" tab
+   - Click "Create new action"
+   - Select "Import from URL"
+   - **Paste your Railway URL + `/openapi.json`**:
+     ```
+     https://YOUR-APP.up.railway.app/openapi.json
+     ```
+   - Click "Import"
+   - ChatGPT will automatically import all endpoints
+
+3. **Save & Test**
+   - Click "Save" in top right
+   - Start chatting: "Check my balance", "Buy 0.1 BTC", etc.
+
+**Your endpoint is ready!** 🎉
 
 ### Usage
 Now you can talk to your Custom GPT:

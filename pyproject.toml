@@ -63,11 +63,11 @@ docs = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/DecentralizedJM/mudrex-trading-sdk"
+Homepage = "https://github.com/DecentralizedJM/mudrex-futures-API-papertrading-py-sdk"
 Documentation = "https://docs.trade.mudrex.com"
-Repository = "https://github.com/DecentralizedJM/mudrex-trading-sdk"
-Issues = "https://github.com/DecentralizedJM/mudrex-trading-sdk/issues"
-Changelog = "https://github.com/DecentralizedJM/mudrex-trading-sdk/blob/main/CHANGELOG.md"
+Repository = "https://github.com/DecentralizedJM/mudrex-futures-API-papertrading-py-sdk"
+Issues = "https://github.com/DecentralizedJM/mudrex-futures-API-papertrading-py-sdk/issues"
+Changelog = "https://github.com/DecentralizedJM/mudrex-futures-API-papertrading-py-sdk/blob/main/CHANGELOG.md"
 
 [tool.setuptools.packages.find]
 where = ["."]
