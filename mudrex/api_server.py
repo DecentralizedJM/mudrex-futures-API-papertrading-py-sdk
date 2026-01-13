@@ -706,20 +706,15 @@ def main():
     
     port = int(os.environ.get("PORT", 8000))
     host = os.environ.get("HOST", "0.0.0.0")
+    debug_mode = os.environ.get("MUDREX_DEBUG", "false").lower() == "true"
     
-    print("""
+    print(f"""
 ╔═══════════════════════════════════════════════════════════════╗
 ║           🎮 Mudrex Paper Trading API Server                  ║
 ╠═══════════════════════════════════════════════════════════════╣
 ║                                                               ║
-║   Local:   http://localhost:8000                              ║
-║   Docs:    http://localhost:8000/docs                         ║
-║   OpenAPI: http://localhost:8000/openapi.json                 ║
-║                                                               ║
-║   📝 To expose publicly, run in another terminal:             ║
-║      ngrok http 8000                                          ║
-║                                                               ║
-║   Then use the ngrok URL in ChatGPT/Claude!                   ║
+║   Listening on: http://{host}:{port}                          ║
+║   Docs:         http://{host}:{port}/docs                     ║
 ║                                                               ║
 ╚═══════════════════════════════════════════════════════════════╝
     """)
@@ -728,7 +723,7 @@ def main():
         "mudrex.api_server:app",
         host=host,
         port=port,
-        reload=True,
+        reload=debug_mode,
         log_level="info",
     )
 

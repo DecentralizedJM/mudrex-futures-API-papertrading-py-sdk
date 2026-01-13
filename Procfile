@@ -1,0 +1,1 @@
+web: python -m mudrex.api_server
