@@ -149,6 +149,32 @@ print(f"Final Balance: ${stats['total_balance']}")
 
 ---
 
+## 🤖 AI & MCP Integration
+
+This SDK works seamlessly with AI coding assistants like **Claude**, **ChatGPT**, and **Cursor** via the Model Context Protocol (MCP) or simple HTTP API.
+
+### 1. Claude Desktop / Cursor (Local MCP)
+Connect your AI assistant directly to your local paper trading engine. Ask Claude to "buy 1 BTC" or "check my PnL" directly in your chat!
+
+```bash
+# Run the local MCP server (Offline Mode)
+python -m mudrex.mcp_server --offline
+```
+
+👉 **[Read the Full MCP Setup Guide](docs/MCP_GUIDE.md)**
+
+### 2. ChatGPT / Web Agents (Cloud API)
+Deploy the API server to the cloud (e.g., Railway) to let ChatGPT manage your paper trading portfolio.
+
+```bash
+# Start the HTTP API server
+python -m mudrex.api_server
+```
+
+👉 **[Read the Cloud API Guide](docs/MCP_GUIDE.md#2-cloud-api-server-for-chatgpt--web-llms)**
+
+---
+
 ## 🚀 Quick Start
 
 ### Basic Usage
@@ -595,95 +621,6 @@ prices.set_price("BTCUSDT", Decimal("105000"))
 # Check profit
 positions = engine.list_open_positions()
 print(f"PnL: ${positions[0].unrealized_pnl}")  # $500
-```
-
----
-
-
-## 🆕 V2 Features: Funding & Liquidation
-
-### Funding Rate Payments
-
-Funding is exchanged every 8 hours (00:00, 08:00, 16:00 UTC) just like real exchanges:
-
-```python
-from mudrex import MudrexClient
-
-client = MudrexClient(
-    api_secret="...",
-    mode="paper",
-    paper_balance="10000",
-    enable_funding=True,  # Enable funding payments
-)
-
-# Place a position
-client.orders.create_market_order(
-    symbol="BTCUSDT",
-    side="LONG",
-    quantity="0.1",
-    leverage="10",
-)
-
-# Funding is automatically applied every 8 hours:
-# - Positive rate: LONG pays SHORT
-# - Negative rate: SHORT pays LONG
-# - Payment = Position Value × Funding Rate
-
-# Check cumulative funding paid
-positions = client.positions.list_open()
-print(f"Funding paid: ${positions[0].cumulative_funding}")
-```
-
-### Auto-Liquidation
-
-Positions are automatically liquidated when margin is exhausted:
-
-```python
-client = MudrexClient(
-    api_secret="...",
-    mode="paper",
-    paper_balance="10000",
-    enable_liquidation=True,  # Enable auto-liquidation
-)
-
-# Place a high-leverage position
-order = client.orders.create_market_order(
-    symbol="BTCUSDT",
-    side="LONG",
-    quantity="0.1",
-    leverage="20",  # 20x = ~5% liquidation distance
-)
-
-# Check liquidation price
-positions = client.positions.list_open()
-print(f"Entry: ${positions[0].entry_price}")
-print(f"Liq Price: ${positions[0].liquidation_price}")
-
-# If price drops to liquidation price, position is auto-closed
-# with total loss of margin + 0.5% liquidation fee
-```
-
-### Liquidation Price Formula
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                 LIQUIDATION FORMULAS                        │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│   LONG Position:                                            │
-│   Liq Price = Entry × (1 - 1/Leverage + MMR)                │
-│                                                             │
-│   SHORT Position:                                           │
-│   Liq Price = Entry × (1 + 1/Leverage - MMR)                │
-│                                                             │
-│   Where MMR (Maintenance Margin Rate) = 0.5%                │
-│                                                             │
-│   Example (LONG 10x):                                       │
-│   • Entry: $100,000                                         │
-│   • Liq = 100,000 × (1 - 0.1 + 0.005) = $90,500             │
-│   • Price drops 9.5% → LIQUIDATED                           │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
 ```
 
 ---
