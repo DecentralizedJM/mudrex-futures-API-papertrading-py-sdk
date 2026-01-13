@@ -122,7 +122,11 @@ class UserSession:
 sessions: Dict[str, UserSession] = {}
 
 
-def get_or_create_session(session_id: Optional[str] = None, balance: str = "10000") -> UserSession:
+def get_or_create_session(
+    session_id: Optional[str] = None, 
+    balance: str = "10000",
+    api_token: Optional[str] = None
+) -> UserSession:
     """Get existing session or create new one."""
     if session_id and session_id in sessions:
         session = sessions[session_id]
@@ -132,6 +136,14 @@ def get_or_create_session(session_id: Optional[str] = None, balance: str = "1000
     # Create new session
     new_id = session_id or f"session_{uuid.uuid4().hex[:12]}"
     session = UserSession(new_id, Decimal(balance))
+    
+    # If user provided a specific token, override env var check
+    if api_token:
+        session.api_secret = api_token
+        if AssetsAPI:
+            session._init_online_mode()
+            logger.info(f"Session {new_id} UPGRADED to ONLINE mode via User Token")
+            
     sessions[new_id] = session
     return session
 
@@ -175,7 +187,8 @@ class ResetAccountRequest(BaseModel):
 
 
 class CreateSessionRequest(BaseModel):
-    balance: str = "10000"
+    initial_balance: str = Field(default="10000", description="Simulated starting balance")
+    api_token: Optional[str] = Field(default=None, description="Mudrex API Secret (for live prices)")
 
 
 # ============================================================================
@@ -186,8 +199,6 @@ class CreateSessionRequest(BaseModel):
 async def lifespan(app: FastAPI):
     """Startup and shutdown events."""
     logger.info("🚀 Mudrex Paper Trading API Server starting...")
-    logger.info("📝 API docs available at /docs")
-    logger.info("💡 Tip: Run 'ngrok http 8000' for public access")
     yield
     logger.info("👋 Server shutting down...")
 
@@ -198,6 +209,11 @@ app = FastAPI(
 # 🎮 Paper Trading API for LLMs
 
 Practice crypto trading with simulated funds. Works with ChatGPT, Claude, or any LLM.
+
+## Features
+- **Instant Sessions**: Start trading immediately
+- **Live Prices**: (Requires API Secret provided in session creation or env var)
+- **Offline Mode**: Works with mock data if no key provided
 
 ## How to Use
 
@@ -286,14 +302,21 @@ async def create_session(request: CreateSessionRequest = None):
     """
     Create a new paper trading session.
     
+    Optional: Provide `api_token` to use live prices from your own account.
     Returns a session_id to use in subsequent requests via X-Session-ID header.
     """
-    balance = request.balance if request else "10000"
-    session = get_or_create_session(balance=balance)
+    initial_balance = request.initial_balance if request else "10000"
+    token = request.api_token if request else None
+    
+    session = get_or_create_session(balance=initial_balance, api_token=token)
+    
+    # Check if using Live or Mock
+    is_live = isinstance(session.price_feed, PriceFeedService)
     
     return {
         "session_id": session.session_id,
         "balance": format_decimal(session.engine.get_wallet().balance),
+        "mode": "ONLINE (Live Prices)" if is_live else "OFFLINE (Mock Prices)",
         "created_at": session.created_at.isoformat(),
         "message": f"Session created! Use X-Session-ID: {session.session_id} header for all requests.",
     }
