@@ -104,6 +104,36 @@ Now you can talk to your Custom GPT:
 - "Start a trading session."
 - "Short ETH with 5x leverage."
 
+### Advanced: Railway Variables & Direct Upload
+
+#### 1. Environment Variables (Live Prices)
+By default, the server runs in **Offline Mode** (mock prices). To use **Live Mudrex Prices**:
+
+1. Go to your Railway Project Dashboard.
+2. Click on the **Variables** tab.
+3. Add a new variable:
+   - **Name**: `MUDREX_API_SECRET`
+   - **Value**: `your_real_api_secret_here`
+4. Railway will automatically redeploy. The server logs will show `Created session ... [ONLINE (Live Prices)]`.
+
+#### 2. Direct Upload (No Git)
+If you want to deploy without pushing to GitHub/GitLab, use the [Railway CLI](https://docs.railway.app/guides/cli):
+
+1. **Install CLI**:
+   ```bash
+   brew install railway
+   ```
+2. **Login & Init**:
+   ```bash
+   railway login
+   railway init
+   ```
+3. **Deploy from Local Folder**:
+   ```bash
+   railway up
+   ```
+   *This uploads your current folder directly to Railway builds.*
+
 ---
 
 ## 3. Comparison

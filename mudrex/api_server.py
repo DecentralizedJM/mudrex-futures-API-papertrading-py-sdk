@@ -31,7 +31,15 @@ from pydantic import BaseModel, Field
 from mudrex.paper import (
     PaperTradingEngine,
     MockPriceFeedService,
+    PriceFeedService,
 )
+
+# For Online Mode
+try:
+    from mudrex.api.assets import AssetsAPI
+except ImportError:
+    AssetsAPI = None
+
 # Side is just a string: "LONG" or "SHORT"
 from mudrex.paper.exceptions import (
     InsufficientMarginError,
@@ -58,9 +66,13 @@ class UserSession:
         self.created_at = datetime.now(timezone.utc)
         self.last_activity = self.created_at
         
-        # Create mock price feed with default prices
-        self.price_feed = MockPriceFeedService()
-        self._set_default_prices()
+        # Check for online mode via Env Var
+        self.api_secret = os.environ.get("MUDREX_API_SECRET")
+        
+        if self.api_secret and AssetsAPI:
+            self._init_online_mode()
+        else:
+            self._init_offline_mode()
         
         # Create paper trading engine
         self.engine = PaperTradingEngine(
@@ -68,7 +80,25 @@ class UserSession:
             price_feed=self.price_feed,
         )
         
-        logger.info(f"Created session {session_id} with balance ${initial_balance}")
+        mode = "ONLINE (Live Prices)" if self.api_secret else "OFFLINE (Mock Prices)"
+        logger.info(f"Created session {session_id} with balance ${initial_balance} [{mode}]")
+
+    def _init_online_mode(self):
+        """Initialize with live Mudrex price feed."""
+        # Create a minimal client wrapper for AssetsAPI
+        class MinimalClient:
+            def __init__(self, secret):
+                self.api_secret = secret
+                self.base_url = "https://trade.mudrex.com/fapi/v1"
+        
+        client = MinimalClient(self.api_secret)
+        assets_api = AssetsAPI(client)
+        self.price_feed = PriceFeedService(assets_api)
+
+    def _init_offline_mode(self):
+        """Initialize with mock price feed."""
+        self.price_feed = MockPriceFeedService()
+        self._set_default_prices()
     
     def _set_default_prices(self):
         """Set default crypto prices."""
