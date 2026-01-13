@@ -346,6 +346,31 @@ async def health():
     return {"status": "healthy", "timestamp": datetime.now(timezone.utc).isoformat()}
 
 
+@app.get("/privacy", tags=["Info"])
+async def privacy_policy():
+    """
+    Privacy Policy for the Paper Trading API.
+    
+    This endpoint provides the privacy policy required by ChatGPT Custom GPTs.
+    """
+    return {
+        "privacy_policy": "https://github.com/DecentralizedJM/mudrex-futures-API-papertrading-py-sdk/blob/main/PRIVACY_POLICY.md",
+        "summary": """
+        Mudrex Paper Trading API Privacy Policy Summary:
+        
+        - No Personal Information Collected: We do not collect names, emails, or any personally identifiable information
+        - Simulation Only: This is a paper trading service with virtual funds - no real money involved
+        - Temporary Data: All session data is stored in memory only and cleared on server restart
+        - No Persistent Storage: No databases, no backups, no long-term data retention
+        - No Third-Party Sharing: We do not share or sell any data
+        - Educational Purpose: This service is for learning and testing trading strategies only
+        
+        Full policy: https://github.com/DecentralizedJM/mudrex-futures-API-papertrading-py-sdk/blob/main/PRIVACY_POLICY.md
+        """,
+        "full_policy_url": "https://github.com/DecentralizedJM/mudrex-futures-API-papertrading-py-sdk/blob/main/PRIVACY_POLICY.md"
+    }
+
+
 # ============================================================================
 # Session Management
 # ============================================================================
