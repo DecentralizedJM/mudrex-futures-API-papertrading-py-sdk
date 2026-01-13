@@ -247,6 +247,50 @@ app.add_middleware(
 )
 
 
+# Custom OpenAPI schema to include servers field for ChatGPT
+def custom_openapi():
+    """Custom OpenAPI schema with servers field."""
+    if app.openapi_schema:
+        return app.openapi_schema
+    
+    from fastapi.openapi.utils import get_openapi
+    
+    # Get base URL from environment variables (Railway, Render, etc.)
+    server_url = None
+    
+    # Try Railway first
+    railway_domain = os.environ.get("RAILWAY_PUBLIC_DOMAIN")
+    if railway_domain:
+        server_url = f"https://{railway_domain}"
+    
+    # Try Render
+    if not server_url:
+        render_url = os.environ.get("RENDER_EXTERNAL_URL")
+        if render_url:
+            server_url = render_url
+    
+    # Try custom BASE_URL
+    if not server_url:
+        server_url = os.environ.get("BASE_URL")
+    
+    # Fallback to the known Railway URL
+    if not server_url:
+        server_url = "https://mudrex-futures-api-papertrading-py-sdk-production.up.railway.app"
+    
+    openapi_schema = get_openapi(
+        title=app.title,
+        version=app.version,
+        description=app.description,
+        routes=app.routes,
+        servers=[{"url": server_url, "description": "Production server"}],
+    )
+    app.openapi_schema = openapi_schema
+    return app.openapi_schema
+
+
+app.openapi = custom_openapi
+
+
 # ============================================================================
 # Helper Functions
 # ============================================================================
