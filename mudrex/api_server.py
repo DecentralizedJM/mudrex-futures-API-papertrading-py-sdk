@@ -23,7 +23,7 @@ from datetime import datetime, timezone
 from typing import Dict, Optional, Any
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException, Header, Depends
+from fastapi import FastAPI, HTTPException, Header, Depends, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -172,7 +172,6 @@ class LimitOrderRequest(BaseModel):
 
 
 class UpdateSLTPRequest(BaseModel):
-    position_id: str
     stoploss: Optional[str] = None
     takeprofit: Optional[str] = None
 
@@ -218,9 +217,9 @@ Practice crypto trading with simulated funds. Works with ChatGPT, Claude, or any
 ## How to Use
 
 1. **Create a session** - `POST /session` → get a `session_id`
-2. **Trade** - Use the session_id in `X-Session-ID` header
-3. **Check positions** - `GET /positions`
-4. **Close trades** - `POST /positions/{id}/close`
+2. **Trade** - Use the session_id as query parameter: `?session_id=YOUR_SESSION_ID`
+3. **Check positions** - `GET /positions?session_id=YOUR_SESSION_ID`
+4. **Close trades** - `POST /positions/{id}/close?session_id=YOUR_SESSION_ID`
 
 ## Quick Start (ChatGPT Custom GPT)
 
@@ -300,16 +299,26 @@ def format_decimal(value: Decimal) -> str:
     return f"{value:.8f}".rstrip('0').rstrip('.')
 
 
-def get_session(x_session_id: Optional[str] = Header(default=None)) -> UserSession:
-    """Dependency to get user session from header."""
-    if not x_session_id:
+def get_session(
+    session_id: Optional[str] = Query(default=None, description="Session ID (optional, creates default if not provided)"),
+    x_session_id: Optional[str] = Header(default=None, include_in_schema=False)
+) -> UserSession:
+    """
+    Dependency to get user session from query parameter or header.
+    
+    ChatGPT-compatible: Uses query parameter `session_id` (header is for backward compatibility).
+    """
+    # Prefer query parameter (ChatGPT compatible), fallback to header
+    sid = session_id or x_session_id
+    
+    if not sid:
         # Create a default session for simple testing
         return get_or_create_session("default")
     
-    if x_session_id not in sessions:
-        raise HTTPException(status_code=404, detail=f"Session not found: {x_session_id}")
+    if sid not in sessions:
+        raise HTTPException(status_code=404, detail=f"Session not found: {sid}")
     
-    session = sessions[x_session_id]
+    session = sessions[sid]
     session.touch()
     return session
 
@@ -362,7 +371,7 @@ async def create_session(request: CreateSessionRequest = None):
         "balance": format_decimal(session.engine.get_wallet().balance),
         "mode": "ONLINE (Live Prices)" if is_live else "OFFLINE (Mock Prices)",
         "created_at": session.created_at.isoformat(),
-        "message": f"Session created! Use X-Session-ID: {session.session_id} header for all requests.",
+        "message": f"Session created! Use ?session_id={session.session_id} query parameter for all requests.",
     }
 
 
