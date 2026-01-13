@@ -25,6 +25,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Header, Depends, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 
 # Mudrex Paper Trading imports
@@ -283,6 +284,11 @@ def custom_openapi():
         routes=app.routes,
         servers=[{"url": server_url, "description": "Production server"}],
     )
+    
+    # Add privacy policy URL to info section for ChatGPT
+    if "info" in openapi_schema:
+        openapi_schema["info"]["x-privacy-policy-url"] = f"{server_url}/privacy"
+    
     app.openapi_schema = openapi_schema
     return app.openapi_schema
 
@@ -346,29 +352,117 @@ async def health():
     return {"status": "healthy", "timestamp": datetime.now(timezone.utc).isoformat()}
 
 
-@app.get("/privacy", tags=["Info"])
+@app.get("/privacy", tags=["Info"], response_class=HTMLResponse)
 async def privacy_policy():
     """
     Privacy Policy for the Paper Trading API.
     
     This endpoint provides the privacy policy required by ChatGPT Custom GPTs.
+    Returns the privacy policy as HTML for public access.
     """
-    return {
-        "privacy_policy": "https://github.com/DecentralizedJM/mudrex-futures-API-papertrading-py-sdk/blob/main/PRIVACY_POLICY.md",
-        "summary": """
-        Mudrex Paper Trading API Privacy Policy Summary:
+    privacy_html = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Privacy Policy - Mudrex Paper Trading API</title>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 800px; margin: 40px auto; padding: 20px; line-height: 1.6; }
+            h1 { color: #333; border-bottom: 2px solid #4CAF50; padding-bottom: 10px; }
+            h2 { color: #555; margin-top: 30px; }
+            ul { margin: 10px 0; }
+            .disclaimer { background: #f0f0f0; padding: 15px; border-left: 4px solid #4CAF50; margin: 20px 0; }
+            .last-updated { color: #888; font-size: 0.9em; }
+        </style>
+    </head>
+    <body>
+        <h1>Privacy Policy - Mudrex Paper Trading API</h1>
+        <p class="last-updated"><strong>Last Updated:</strong> January 13, 2026</p>
         
-        - No Personal Information Collected: We do not collect names, emails, or any personally identifiable information
-        - Simulation Only: This is a paper trading service with virtual funds - no real money involved
-        - Temporary Data: All session data is stored in memory only and cleared on server restart
-        - No Persistent Storage: No databases, no backups, no long-term data retention
-        - No Third-Party Sharing: We do not share or sell any data
-        - Educational Purpose: This service is for learning and testing trading strategies only
+        <h2>Overview</h2>
+        <p>The Mudrex Paper Trading API is a simulation service that allows users to practice cryptocurrency trading with virtual funds. This privacy policy explains how we handle your data when you use this service.</p>
         
-        Full policy: https://github.com/DecentralizedJM/mudrex-futures-API-papertrading-py-sdk/blob/main/PRIVACY_POLICY.md
-        """,
-        "full_policy_url": "https://github.com/DecentralizedJM/mudrex-futures-API-papertrading-py-sdk/blob/main/PRIVACY_POLICY.md"
-    }
+        <h2>Data Collection</h2>
+        <h3>What We Collect</h3>
+        <ul>
+            <li><strong>Session Data:</strong> Temporary session identifiers and trading simulation data</li>
+            <li><strong>Trading Activity:</strong> Simulated trades, positions, and balances (all virtual)</li>
+            <li><strong>API Usage:</strong> Standard server logs for debugging and service improvement</li>
+        </ul>
+        
+        <h3>What We DON'T Collect</h3>
+        <ul>
+            <li>❌ <strong>No Personal Information:</strong> We do not collect names, emails, addresses, or any personally identifiable information</li>
+            <li>❌ <strong>No Real Financial Data:</strong> This is a simulation - no real money, accounts, or financial information is involved</li>
+            <li>❌ <strong>No Authentication:</strong> No login credentials or authentication tokens are stored</li>
+            <li>❌ <strong>No Persistent Storage:</strong> All session data is stored in memory and cleared when the server restarts</li>
+        </ul>
+        
+        <h2>How We Use Your Data</h2>
+        <ul>
+            <li><strong>Service Operation:</strong> Session data is used solely to maintain your paper trading simulation state</li>
+            <li><strong>No Sharing:</strong> We do not share, sell, or distribute any data to third parties</li>
+            <li><strong>No Tracking:</strong> We do not track users across sessions or websites</li>
+        </ul>
+        
+        <h2>Data Storage</h2>
+        <ul>
+            <li><strong>In-Memory Only:</strong> All session data is stored in server memory (RAM)</li>
+            <li><strong>Temporary:</strong> Sessions are automatically cleared when the server restarts or a session is deleted</li>
+            <li><strong>No Database:</strong> We do not use persistent databases for user data</li>
+            <li><strong>No Backups:</strong> Session data is not backed up or archived</li>
+        </ul>
+        
+        <h2>Data Security</h2>
+        <ul>
+            <li><strong>Simulation Only:</strong> Since this is a paper trading simulation with no real money, there is no financial risk</li>
+            <li><strong>No Sensitive Data:</strong> We do not store sensitive personal or financial information</li>
+            <li><strong>Standard Security:</strong> We follow standard web security practices (HTTPS, CORS protection)</li>
+        </ul>
+        
+        <h2>Third-Party Services</h2>
+        <p>The service may be hosted on platforms like Railway, Render, or similar cloud providers. We do not share your session data with hosting providers beyond what is necessary for service operation.</p>
+        
+        <h2>Your Rights</h2>
+        <ul>
+            <li><strong>Delete Session:</strong> You can delete your session at any time using the API</li>
+            <li><strong>No Data Retention:</strong> Since data is not persisted, there is no data to retrieve or delete after session expiration</li>
+            <li><strong>Transparency:</strong> All API endpoints and data structures are documented in the OpenAPI specification</li>
+        </ul>
+        
+        <h2>Children's Privacy</h2>
+        <p>This service is intended for educational purposes. We do not knowingly collect data from children under 13. Since we do not collect personal information, this is not applicable.</p>
+        
+        <h2>Changes to This Policy</h2>
+        <p>We may update this privacy policy from time to time. The "Last Updated" date at the top indicates when changes were made.</p>
+        
+        <h2>Contact</h2>
+        <p>For questions about this privacy policy, please open an issue on GitHub:<br>
+        <a href="https://github.com/DecentralizedJM/mudrex-futures-API-papertrading-py-sdk/issues">https://github.com/DecentralizedJM/mudrex-futures-API-papertrading-py-sdk/issues</a></p>
+        
+        <div class="disclaimer">
+            <h2>Disclaimer</h2>
+            <p><strong>This is a paper trading simulation service.</strong></p>
+            <ul>
+                <li>No real money is involved</li>
+                <li>No real trades are executed</li>
+                <li>All data is temporary and simulation-only</li>
+                <li>This service is for educational and testing purposes only</li>
+            </ul>
+            
+            <p><strong>By using this service, you acknowledge that:</strong></p>
+            <ol>
+                <li>This is a simulation with no real financial transactions</li>
+                <li>All session data is temporary and may be lost at any time</li>
+                <li>No personal or financial data is collected or stored</li>
+                <li>You use this service at your own discretion</li>
+            </ol>
+        </div>
+    </body>
+    </html>
+    """
+    return privacy_html
 
 
 # ============================================================================
