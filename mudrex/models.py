@@ -17,12 +17,9 @@ from typing import Optional, List, Dict, Any
 # ============================================================================
 
 class OrderType(str, Enum):
-    """Order direction/type - LONG (buy), SHORT (sell), or risk order types."""
+    """Order direction - LONG (buy) or SHORT (sell)."""
     LONG = "LONG"
     SHORT = "SHORT"
-    # Risk order types (used for stop-loss and take-profit orders)
-    STOPLOSS = "STOPLOSS"
-    TAKEPROFIT = "TAKEPROFIT"
 
 
 class TriggerType(str, Enum):
@@ -52,7 +49,6 @@ class PositionStatus(str, Enum):
     OPEN = "OPEN"
     CLOSED = "CLOSED"
     LIQUIDATED = "LIQUIDATED"
-    PARTIAL = "PARTIAL"  # Partially closed position
 
 
 class WalletType(str, Enum):

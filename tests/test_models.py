@@ -23,39 +23,26 @@ class TestWalletBalance:
     def test_from_dict(self):
         data = {
             "total": "1000.50",
+            "available": "800.25",
             "rewards": "10.00",
             "withdrawable": "750.00",
-            "invested": "200.00",
+            "currency": "USDT"
         }
         balance = WalletBalance.from_dict(data)
         
         assert balance.total == "1000.50"
+        assert balance.available == "800.25"
         assert balance.rewards == "10.00"
         assert balance.withdrawable == "750.00"
-        assert balance.invested == "200.00"
-        # available is a property that returns withdrawable
-        assert balance.available == "750.00"
+        assert balance.currency == "USDT"
     
     def test_from_dict_defaults(self):
         data = {}
         balance = WalletBalance.from_dict(data)
         
         assert balance.total == "0"
-        assert balance.withdrawable == "0"
-        # available is a property that returns withdrawable
         assert balance.available == "0"
-    
-    def test_available_property(self):
-        """Test that available property returns withdrawable value."""
-        data = {
-            "total": "500.00",
-            "withdrawable": "300.00",
-        }
-        balance = WalletBalance.from_dict(data)
-        
-        # The available property should return the same value as withdrawable
-        assert balance.available == balance.withdrawable
-        assert balance.available == "300.00"
+        assert balance.currency == "USDT"
 
 
 class TestAsset:
