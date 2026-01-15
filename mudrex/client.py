@@ -31,28 +31,148 @@ logger = logging.getLogger(__name__)
 
 class RateLimiter:
     """
-    Simple rate limiter to stay within API limits.
+    Comprehensive rate limiter to stay within all API limits.
     
-    Limits:
+    Tracks requests across multiple time windows:
     - 2 requests per second
     - 50 requests per minute
     - 1000 requests per hour
     - 10000 requests per day
+    
+    Uses a sliding window approach to accurately track request counts.
     """
     
-    def __init__(self, requests_per_second: float = 2.0):
+    # Default rate limits from Mudrex API documentation
+    DEFAULT_LIMITS = {
+        "second": 2,
+        "minute": 50,
+        "hour": 1000,
+        "day": 10000,
+    }
+    
+    # Time windows in seconds
+    TIME_WINDOWS = {
+        "second": 1,
+        "minute": 60,
+        "hour": 3600,
+        "day": 86400,
+    }
+    
+    def __init__(
+        self,
+        requests_per_second: int = 2,
+        requests_per_minute: int = 50,
+        requests_per_hour: int = 1000,
+        requests_per_day: int = 10000,
+    ):
+        """
+        Initialize the rate limiter with configurable limits.
+        
+        Args:
+            requests_per_second: Max requests per second (default: 2)
+            requests_per_minute: Max requests per minute (default: 50)
+            requests_per_hour: Max requests per hour (default: 1000)
+            requests_per_day: Max requests per day (default: 10000)
+        """
+        self.limits = {
+            "second": requests_per_second,
+            "minute": requests_per_minute,
+            "hour": requests_per_hour,
+            "day": requests_per_day,
+        }
+        
+        # Store timestamps of recent requests for sliding window tracking
+        self._request_times: List[float] = []
+        
+        # Minimum interval between requests (based on per-second limit)
         self.min_interval = 1.0 / requests_per_second
         self.last_request_time = 0.0
     
-    def wait(self) -> None:
-        """Wait if necessary to respect rate limits."""
-        now = time.time()
+    def _cleanup_old_requests(self, now: float) -> None:
+        """Remove request timestamps older than the longest window (1 day)."""
+        cutoff = now - self.TIME_WINDOWS["day"]
+        self._request_times = [t for t in self._request_times if t > cutoff]
+    
+    def _count_requests_in_window(self, now: float, window_seconds: float) -> int:
+        """Count requests within a time window."""
+        cutoff = now - window_seconds
+        return sum(1 for t in self._request_times if t > cutoff)
+    
+    def _get_wait_time(self, now: float) -> float:
+        """
+        Calculate how long to wait before the next request is allowed.
+        
+        Returns:
+            Wait time in seconds (0 if no wait needed)
+        """
+        max_wait = 0.0
+        
+        for window_name, window_seconds in self.TIME_WINDOWS.items():
+            limit = self.limits[window_name]
+            count = self._count_requests_in_window(now, window_seconds)
+            
+            if count >= limit:
+                # Find the oldest request in this window
+                cutoff = now - window_seconds
+                relevant_times = [t for t in self._request_times if t > cutoff]
+                
+                if relevant_times:
+                    # We need to wait until the oldest request falls out of the window
+                    oldest = min(relevant_times)
+                    wait = (oldest + window_seconds) - now + 0.01  # Add small buffer
+                    max_wait = max(max_wait, wait)
+                    logger.debug(
+                        f"Rate limit ({window_name}): {count}/{limit}, "
+                        f"wait {wait:.2f}s"
+                    )
+        
+        # Also enforce minimum interval between requests
         elapsed = now - self.last_request_time
         if elapsed < self.min_interval:
-            sleep_time = self.min_interval - elapsed
-            logger.debug(f"Rate limiter: sleeping {sleep_time:.3f}s")
-            time.sleep(sleep_time)
-        self.last_request_time = time.time()
+            interval_wait = self.min_interval - elapsed
+            max_wait = max(max_wait, interval_wait)
+        
+        return max_wait
+    
+    def wait(self) -> None:
+        """Wait if necessary to respect all rate limits."""
+        now = time.time()
+        
+        # Clean up old timestamps
+        self._cleanup_old_requests(now)
+        
+        # Calculate and apply wait time
+        wait_time = self._get_wait_time(now)
+        if wait_time > 0:
+            logger.debug(f"Rate limiter: sleeping {wait_time:.3f}s")
+            time.sleep(wait_time)
+            now = time.time()
+        
+        # Record this request
+        self._request_times.append(now)
+        self.last_request_time = now
+    
+    def get_usage(self) -> Dict[str, Dict[str, int]]:
+        """
+        Get current rate limit usage for monitoring.
+        
+        Returns:
+            Dict with usage counts and limits for each window
+            
+        Example:
+            >>> usage = client._rate_limiter.get_usage()
+            >>> print(f"Minute: {usage['minute']['used']}/{usage['minute']['limit']}")
+        """
+        now = time.time()
+        self._cleanup_old_requests(now)
+        
+        return {
+            window_name: {
+                "used": self._count_requests_in_window(now, window_seconds),
+                "limit": self.limits[window_name],
+            }
+            for window_name, window_seconds in self.TIME_WINDOWS.items()
+        }
 
 
 class MudrexClient:
@@ -132,15 +252,18 @@ class MudrexClient:
             "User-Agent": "mudrex-python-sdk/1.0.0",
         })
         
+        # Paper trading state
         self._paper_engine = None
         self._paper_db = None
         self._paper_sltp_monitor = None
         self._paper_funding_monitor = None
         self._paper_liquidation_engine = None
         self._external_data = None
-        self._paper_funding_monitor = None
-        self._paper_liquidation_engine = None
-        self._external_data = None
+        
+        # Store paper trading config for reset/import operations
+        self._paper_funding_enabled = paper_funding
+        self._paper_liquidation_enabled = paper_liquidation
+        self._paper_sltp_interval = paper_sltp_interval
         
         if self.mode == "paper":
             self._init_paper_trading(
@@ -179,9 +302,6 @@ class MudrexClient:
             PaperDB,
             SLTPMonitor,
         )
-        from mudrex.paper.external_data import ExternalDataService
-        from mudrex.paper.funding import FundingMonitor
-        from mudrex.paper.liquidation import LiquidationEngine
         from mudrex.paper.external_data import ExternalDataService
         from mudrex.paper.funding import FundingMonitor
         from mudrex.paper.liquidation import LiquidationEngine
@@ -232,30 +352,6 @@ class MudrexClient:
         self.orders = PaperOrdersAPI(self._paper_engine, self.assets)
         self.positions = PaperPositionsAPI(self._paper_engine, self.assets)
         self.fees = PaperFeesAPI(self._paper_engine)
-        
-        # Initialize external data service for funding rates and mark prices
-        if enable_funding or enable_liquidation:
-            self._external_data = ExternalDataService()
-        
-        # Initialize funding monitor
-        if enable_funding and self._external_data:
-            self._paper_funding_monitor = FundingMonitor(
-                engine=self._paper_engine,
-                external_data=self._external_data,
-                enabled=True,
-            )
-            self._paper_funding_monitor.start()
-            logger.info("Funding rate monitor started (8-hour intervals)")
-        
-        # Initialize liquidation engine
-        if enable_liquidation and self._external_data:
-            self._paper_liquidation_engine = LiquidationEngine(
-                engine=self._paper_engine,
-                external_data=self._external_data,
-                enabled=True,
-            )
-            self._paper_liquidation_engine.start()
-            logger.info("Liquidation engine started")
         
         # Initialize external data service for funding rates and mark prices
         if enable_funding or enable_liquidation:
@@ -374,17 +470,18 @@ class MudrexClient:
         if self.mode != "paper":
             raise RuntimeError("reset_paper_trading() only works in paper mode")
         
+        # Stop existing monitors
         if self._paper_sltp_monitor:
             self._paper_sltp_monitor.stop()
+        if self._paper_funding_monitor:
+            self._paper_funding_monitor.stop()
+        if self._paper_liquidation_engine:
+            self._paper_liquidation_engine.stop()
         
-        from mudrex.paper import PaperTradingEngine, PriceFeedService
-        
-        price_feed = PriceFeedService(self)
-        self._paper_engine = PaperTradingEngine(
-            initial_balance=Decimal(new_balance),
-            price_feed=price_feed,
-        )
-        
+        from mudrex.paper import PaperTradingEngine, PriceFeedService, SLTPMonitor
+        from mudrex.paper.external_data import ExternalDataService
+        from mudrex.paper.funding import FundingMonitor
+        from mudrex.paper.liquidation import LiquidationEngine
         from mudrex.paper.api import (
             PaperOrdersAPI,
             PaperPositionsAPI,
@@ -393,18 +490,25 @@ class MudrexClient:
             PaperFeesAPI,
         )
         
+        # Create new price feed with existing assets API
+        price_feed = PriceFeedService(self.assets)
+        self._paper_engine = PaperTradingEngine(
+            initial_balance=Decimal(new_balance),
+            price_feed=price_feed,
+        )
+        
+        # Reinitialize APIs with new engine
         self.wallet = PaperWalletAPI(self._paper_engine)
-        self.leverage = PaperLeverageAPI(self._paper_engine)
-        self.orders = PaperOrdersAPI(self._paper_engine)
-        self.positions = PaperPositionsAPI(self._paper_engine)
+        self.leverage = PaperLeverageAPI(self._paper_engine, self.assets)
+        self.orders = PaperOrdersAPI(self._paper_engine, self.assets)
+        self.positions = PaperPositionsAPI(self._paper_engine, self.assets)
         self.fees = PaperFeesAPI(self._paper_engine)
         
-        # Initialize external data service for funding rates and mark prices
-        if enable_funding or enable_liquidation:
+        # Reinitialize external data and monitors if they were enabled
+        if self._paper_funding_enabled or self._paper_liquidation_enabled:
             self._external_data = ExternalDataService()
         
-        # Initialize funding monitor
-        if enable_funding and self._external_data:
+        if self._paper_funding_enabled and self._external_data:
             self._paper_funding_monitor = FundingMonitor(
                 engine=self._paper_engine,
                 external_data=self._external_data,
@@ -413,8 +517,7 @@ class MudrexClient:
             self._paper_funding_monitor.start()
             logger.info("Funding rate monitor started (8-hour intervals)")
         
-        # Initialize liquidation engine
-        if enable_liquidation and self._external_data:
+        if self._paper_liquidation_enabled and self._external_data:
             self._paper_liquidation_engine = LiquidationEngine(
                 engine=self._paper_engine,
                 external_data=self._external_data,
@@ -423,36 +526,11 @@ class MudrexClient:
             self._paper_liquidation_engine.start()
             logger.info("Liquidation engine started")
         
-        # Initialize external data service for funding rates and mark prices
-        if enable_funding or enable_liquidation:
-            self._external_data = ExternalDataService()
-        
-        # Initialize funding monitor
-        if enable_funding and self._external_data:
-            self._paper_funding_monitor = FundingMonitor(
-                engine=self._paper_engine,
-                external_data=self._external_data,
-                enabled=True,
-            )
-            self._paper_funding_monitor.start()
-            logger.info("Funding rate monitor started (8-hour intervals)")
-        
-        # Initialize liquidation engine
-        if enable_liquidation and self._external_data:
-            self._paper_liquidation_engine = LiquidationEngine(
-                engine=self._paper_engine,
-                external_data=self._external_data,
-                enabled=True,
-            )
-            self._paper_liquidation_engine.start()
-            logger.info("Liquidation engine started")
-        
+        # Restart SL/TP monitor if it was running
         if self._paper_sltp_monitor:
-            from mudrex.paper import SLTPMonitor
-            interval = self._paper_sltp_monitor._check_interval
             self._paper_sltp_monitor = SLTPMonitor(
                 engine=self._paper_engine,
-                check_interval=interval,
+                check_interval=self._paper_sltp_interval,
             )
             self._paper_sltp_monitor.start()
         
@@ -487,17 +565,18 @@ class MudrexClient:
         if self.mode != "paper":
             raise RuntimeError("import_paper_state() only works in paper mode")
         
+        # Stop existing monitors
         if self._paper_sltp_monitor:
             self._paper_sltp_monitor.stop()
+        if self._paper_funding_monitor:
+            self._paper_funding_monitor.stop()
+        if self._paper_liquidation_engine:
+            self._paper_liquidation_engine.stop()
         
-        from mudrex.paper import PaperTradingEngine, PriceFeedService
-        
-        price_feed = PriceFeedService(self)
-        self._paper_engine = PaperTradingEngine.from_state(
-            state=state,
-            price_feed=price_feed,
-        )
-        
+        from mudrex.paper import PaperTradingEngine, PriceFeedService, SLTPMonitor
+        from mudrex.paper.external_data import ExternalDataService
+        from mudrex.paper.funding import FundingMonitor
+        from mudrex.paper.liquidation import LiquidationEngine
         from mudrex.paper.api import (
             PaperOrdersAPI,
             PaperPositionsAPI,
@@ -506,18 +585,25 @@ class MudrexClient:
             PaperFeesAPI,
         )
         
+        # Create price feed with existing assets API
+        price_feed = PriceFeedService(self.assets)
+        self._paper_engine = PaperTradingEngine.from_state(
+            state=state,
+            price_feed=price_feed,
+        )
+        
+        # Reinitialize APIs with new engine
         self.wallet = PaperWalletAPI(self._paper_engine)
-        self.leverage = PaperLeverageAPI(self._paper_engine)
-        self.orders = PaperOrdersAPI(self._paper_engine)
-        self.positions = PaperPositionsAPI(self._paper_engine)
+        self.leverage = PaperLeverageAPI(self._paper_engine, self.assets)
+        self.orders = PaperOrdersAPI(self._paper_engine, self.assets)
+        self.positions = PaperPositionsAPI(self._paper_engine, self.assets)
         self.fees = PaperFeesAPI(self._paper_engine)
         
-        # Initialize external data service for funding rates and mark prices
-        if enable_funding or enable_liquidation:
+        # Reinitialize external data and monitors if they were enabled
+        if self._paper_funding_enabled or self._paper_liquidation_enabled:
             self._external_data = ExternalDataService()
         
-        # Initialize funding monitor
-        if enable_funding and self._external_data:
+        if self._paper_funding_enabled and self._external_data:
             self._paper_funding_monitor = FundingMonitor(
                 engine=self._paper_engine,
                 external_data=self._external_data,
@@ -526,8 +612,7 @@ class MudrexClient:
             self._paper_funding_monitor.start()
             logger.info("Funding rate monitor started (8-hour intervals)")
         
-        # Initialize liquidation engine
-        if enable_liquidation and self._external_data:
+        if self._paper_liquidation_enabled and self._external_data:
             self._paper_liquidation_engine = LiquidationEngine(
                 engine=self._paper_engine,
                 external_data=self._external_data,
@@ -536,36 +621,11 @@ class MudrexClient:
             self._paper_liquidation_engine.start()
             logger.info("Liquidation engine started")
         
-        # Initialize external data service for funding rates and mark prices
-        if enable_funding or enable_liquidation:
-            self._external_data = ExternalDataService()
-        
-        # Initialize funding monitor
-        if enable_funding and self._external_data:
-            self._paper_funding_monitor = FundingMonitor(
-                engine=self._paper_engine,
-                external_data=self._external_data,
-                enabled=True,
-            )
-            self._paper_funding_monitor.start()
-            logger.info("Funding rate monitor started (8-hour intervals)")
-        
-        # Initialize liquidation engine
-        if enable_liquidation and self._external_data:
-            self._paper_liquidation_engine = LiquidationEngine(
-                engine=self._paper_engine,
-                external_data=self._external_data,
-                enabled=True,
-            )
-            self._paper_liquidation_engine.start()
-            logger.info("Liquidation engine started")
-        
+        # Restart SL/TP monitor if it was running
         if self._paper_sltp_monitor:
-            from mudrex.paper import SLTPMonitor
-            interval = self._paper_sltp_monitor._check_interval
             self._paper_sltp_monitor = SLTPMonitor(
                 engine=self._paper_engine,
-                check_interval=interval,
+                check_interval=self._paper_sltp_interval,
             )
             self._paper_sltp_monitor.start()
         

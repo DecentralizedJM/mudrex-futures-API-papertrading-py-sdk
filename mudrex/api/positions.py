@@ -5,7 +5,7 @@ Positions API Module
 Endpoints for viewing and managing futures positions.
 """
 
-from typing import TYPE_CHECKING, Optional, List
+from typing import TYPE_CHECKING, Optional, List, Dict, Any
 
 from mudrex.api.base import BaseAPI
 from mudrex.models import Position, RiskOrder
@@ -23,6 +23,8 @@ class PositionsAPI(BaseAPI):
     - Close or partially close positions
     - Set stop-loss and take-profit levels
     - Reverse position direction
+    - Add or reduce margin
+    - Get liquidation price
     - View position history
     
     Example:
@@ -36,6 +38,9 @@ class PositionsAPI(BaseAPI):
         >>> 
         >>> # Set stop-loss on a position
         >>> client.positions.set_stoploss("pos_123", "95000")
+        >>>
+        >>> # Add margin to a position
+        >>> client.positions.add_margin("pos_123", "50.00")
     """
     
     def list_open(self) -> List[Position]:
@@ -84,8 +89,16 @@ class PositionsAPI(BaseAPI):
         Returns:
             Position: Position details
         """
-        response = self._get(f"/futures/positions/{position_id}")
-        return Position.from_dict(response.get("data", response))
+        # API uses query parameter, not path parameter
+        response = self._get("/futures/positions", {"id": position_id})
+        data = response.get("data", response)
+        
+        # Response may be a list with single item or the position directly
+        if isinstance(data, list):
+            if data:
+                return Position.from_dict(data[0])
+            raise ValueError(f"Position {position_id} not found")
+        return Position.from_dict(data)
     
     def close(self, position_id: str) -> bool:
         """
@@ -246,34 +259,168 @@ class PositionsAPI(BaseAPI):
         response = self._patch(f"/futures/positions/{position_id}/riskorder", data)
         return response.get("success", False)
     
-    def get_history(
-        self,
-        page: int = 1,
-        per_page: int = 50,
-    ) -> List[Position]:
+    def get_history(self, limit: Optional[int] = None) -> List[Position]:
         """
-        Get position history (closed positions).
+        Get position history (all closed positions).
         
         Args:
-            page: Page number (default: 1)
-            per_page: Items per page (default: 50)
+            limit: Maximum positions to return. If None, returns ALL (no limit).
             
         Returns:
-            List[Position]: Historical positions
+            List[Position]: Historical/closed positions (newest first)
             
-        Example:
+        Examples:
+            >>> # Get ALL position history (no limit)
+            >>> all_history = client.positions.get_history()
+            >>> print(f"Total closed positions: {len(all_history)}")
+            
+            >>> # Get only last 50
+            >>> recent = client.positions.get_history(limit=50)
+            
+            >>> # Calculate win rate
             >>> history = client.positions.get_history()
             >>> profitable = [p for p in history if float(p.realized_pnl) > 0]
-            >>> print(f"Win rate: {len(profitable)/len(history)*100:.1f}%")
+            >>> if history:
+            ...     win_rate = len(profitable) / len(history) * 100
+            ...     print(f"Win rate: {win_rate:.1f}%")
         """
-        response = self._get("/futures/positions/history", {
-            "page": page,
-            "per_page": per_page,
+        all_positions = []
+        page = 1
+        per_page = 100  # Max per request
+        
+        while True:
+            response = self._get("/futures/positions/history", {
+                "page": page,
+                "per_page": per_page,
+            })
+            data = response.get("data", response)
+            
+            if isinstance(data, list):
+                items = data
+            else:
+                items = data.get("items", data.get("data", []))
+            
+            if not items:
+                break
+            
+            all_positions.extend([Position.from_dict(item) for item in items])
+            
+            # Check if we've reached the limit
+            if limit and len(all_positions) >= limit:
+                return all_positions[:limit]
+            
+            # Check if there are more pages
+            if len(items) < per_page:
+                break
+            
+            page += 1
+        
+        return all_positions
+    
+    def get_liquidation_price(self, position_id: str) -> Dict[str, Any]:
+        """
+        Get the liquidation price for a specific position.
+        
+        The liquidation price is the price at which the position will be
+        automatically closed to prevent further losses beyond the margin.
+        
+        Args:
+            position_id: The position ID to get liquidation price for
+            
+        Returns:
+            Dict containing liquidation price information:
+            - liquidation_price: The price at which liquidation would occur
+            - symbol: The trading symbol
+            - position_id: The position ID
+            
+        Example:
+            >>> pos = client.positions.list_open()[0]
+            >>> liq_info = client.positions.get_liquidation_price(pos.position_id)
+            >>> print(f"Liquidation price: ${liq_info.get('liquidation_price')}")
+            
+        Note:
+            For LONG positions, liquidation occurs when price drops below this level.
+            For SHORT positions, liquidation occurs when price rises above this level.
+        """
+        # Get the position data which includes liquidation_price
+        position = self.get(position_id)
+        return {
+            "position_id": position.position_id,
+            "symbol": position.symbol,
+            "liquidation_price": position.liquidation_price,
+            "entry_price": position.entry_price,
+            "mark_price": position.mark_price,
+            "side": position.side.value,
+        }
+    
+    def add_margin(self, position_id: str, amount: str) -> Dict[str, Any]:
+        """
+        Add margin to an existing position.
+        
+        Adding margin reduces the liquidation risk by increasing the buffer
+        between the current price and the liquidation price.
+        
+        Args:
+            position_id: The position ID to add margin to
+            amount: Amount of margin to add (positive value, as string for precision)
+            
+        Returns:
+            Dict containing updated position/margin information
+            
+        Example:
+            >>> pos = client.positions.list_open()[0]
+            >>> # Add $50 margin to reduce liquidation risk
+            >>> result = client.positions.add_margin(pos.position_id, "50.00")
+            >>> print(f"New margin: ${result.get('margin')}")
+            
+        Note:
+            The amount will be deducted from your futures wallet balance.
+        """
+        return self._adjust_margin(position_id, amount, action="add")
+    
+    def reduce_margin(self, position_id: str, amount: str) -> Dict[str, Any]:
+        """
+        Reduce margin from an existing position.
+        
+        Reducing margin increases your available balance but also increases
+        liquidation risk. Use with caution.
+        
+        Args:
+            position_id: The position ID to reduce margin from
+            amount: Amount of margin to reduce (positive value, as string for precision)
+            
+        Returns:
+            Dict containing updated position/margin information
+            
+        Raises:
+            MudrexValidationError: If the reduction would cause immediate liquidation
+            
+        Example:
+            >>> pos = client.positions.list_open()[0]
+            >>> # Reduce margin by $25 to free up balance
+            >>> result = client.positions.reduce_margin(pos.position_id, "25.00")
+            >>> print(f"New margin: ${result.get('margin')}")
+            
+        Warning:
+            Reducing margin increases liquidation risk. Ensure you have
+            sufficient margin to avoid liquidation.
+        """
+        return self._adjust_margin(position_id, amount, action="reduce")
+    
+    def _adjust_margin(self, position_id: str, amount: str, action: str = "add") -> Dict[str, Any]:
+        """
+        Internal method to adjust margin on a position.
+        
+        Args:
+            position_id: The position ID
+            amount: Amount to adjust (always positive)
+            action: "add" or "reduce"
+            
+        Returns:
+            Dict containing the API response
+        """
+        endpoint = f"/futures/positions/{position_id}/add-margin"
+        response = self._post(endpoint, {
+            "margin": float(amount),  # API expects 'margin' not 'amount'
         })
-        data = response.get("data", response)
-        
-        if isinstance(data, list):
-            return [Position.from_dict(item) for item in data]
-        
-        items = data.get("items", data.get("data", []))
-        return [Position.from_dict(item) for item in items]
+        return response.get("data", response)

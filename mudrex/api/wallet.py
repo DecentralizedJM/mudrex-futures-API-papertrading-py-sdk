@@ -51,7 +51,7 @@ class WalletAPI(BaseAPI):
             >>> print(f"Available: ${balance.available}")
             >>> print(f"Withdrawable: ${balance.withdrawable}")
         """
-        response = self._post("/wallet/funds")
+        response = self._get("/wallet/funds")
         return WalletBalance.from_dict(response.get("data", response))
     
     def get_futures_balance(self) -> FuturesBalance:
@@ -130,7 +130,14 @@ class WalletAPI(BaseAPI):
             
         Returns:
             TransferResult: Transfer confirmation
+            
+        Note:
+            This uses the /wallet/futures/transfer endpoint. The official
+            documentation may show /wallet/transfer as an alternative.
+            Both endpoints should work for spot <-> futures transfers.
         """
+        # Note: Official docs show /wallet/transfer but /wallet/futures/transfer
+        # is confirmed working for futures wallet transfers
         response = self._post("/wallet/futures/transfer", {
             "from_wallet_type": from_wallet.value,
             "to_wallet_type": to_wallet.value,
